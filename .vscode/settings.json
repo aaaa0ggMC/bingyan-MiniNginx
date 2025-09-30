@@ -69,6 +69,8 @@
         "__tree": "cpp",
         "map": "cpp",
         "set": "cpp",
-        "iostream": "cpp"
+        "iostream": "cpp",
+        "__locale": "cpp",
+        "bitset": "cpp"
     }
 }

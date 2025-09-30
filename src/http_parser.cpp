@@ -63,6 +63,7 @@ std::pmr::vector<char> HTTPResponse::generate(){
 }
 
 // @todo 请求的网页可能带非法字符比如空格，因此有%20的转换！
+/* perf: 2028.07ms for 1'000'000 calls   ==> 2.02807us / call*/
 ParseCode HTTPRequest::parse(std::string_view str){
     auto pos = str.find_first_of(' ');
     auto oldpos = 0;
@@ -232,6 +233,34 @@ TEST(HTTPResponse, generate){
     alib::g3::Clock clk;
     for(int i = 0;i < 1'000'000;++i){
         resp.generate();
+    }
+    std::cout << "It costs " << clk.getOffset() << "ms" << std::endl;
+    */
+}
+
+TEST(HTTPRequest,parse){
+    HTTPRequest req;
+    const char * data = "GET / HTTP/1.1\r\n"
+                     "Host: example.com\r\n"
+                     "User-Agent: MyClient/1.0\r\n"
+                     "Accept: */*\r\n"
+                     "\r\nHello World!";
+    ParseCode result = req.parse(data);
+    EXPECT_TRUE(req.method == HTTPRequest::HTTPMethod::GET);
+    EXPECT_FALSE(req.url.compare("/"));
+    EXPECT_TRUE(req.headers.size() == 3);
+    EXPECT_FALSE(req.headers["Host"].compare("example.com"));
+    EXPECT_FALSE(req.headers["User-Agent"].compare("MyClient/1.0"));
+    EXPECT_FALSE(req.headers["Accept"].compare("*/*"));
+    std::string str (req.data->begin(),req.data->end());
+    EXPECT_FALSE(str.compare("Hello World!"));
+    EXPECT_TRUE(result == ParseCode::Success);
+
+    /*
+    std::cout << "Let's parse http request for 1,000,000 times!" << std::endl;
+    alib::g3::Clock clk;
+    for(int i = 0;i < 1'000'000;++i){
+        req.parse(data);
     }
     std::cout << "It costs " << clk.getOffset() << "ms" << std::endl;
     */
