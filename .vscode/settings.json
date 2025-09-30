@@ -68,6 +68,9 @@
         "__hash_table": "cpp",
         "__tree": "cpp",
         "map": "cpp",
-        "set": "cpp"
+        "set": "cpp",
+        "iostream": "cpp",
+        "__locale": "cpp",
+        "bitset": "cpp"
     }
 }

@@ -8,6 +8,8 @@ namespace mnginx{
     using HTTPData = std::pmr::vector<char>;
     using HTTPHeaderHashMap = std::pmr::unordered_map<std::pmr::string,std::pmr::string>; 
 
+    constexpr const char * KEY_Content_Length = "Content-Length";
+
     /**
      * @brief HTTP Version Control,since this project is a prototype,mininginx uses HTTP/1.1
      * @start-date 2025/09/30
@@ -19,6 +21,14 @@ namespace mnginx{
         inline HTTPVersion():major{1},minor{1}{}
     };
     
+    enum class ParseCode : int32_t{
+        Success,
+        InvalidFormat,
+        TooManySpaces,
+        SpaceInTheFrontOfHeader,
+        InvalidKeyName
+    };
+
     /**
      * @brief HTTP Requests from client
      * @start-date 2025/09/30
@@ -26,7 +36,8 @@ namespace mnginx{
     struct HTTPRequest{
         enum HTTPMethod : int32_t{
             GET,
-            POST
+            POST,
+            InvalidMethod
         };
 
         //// Request Line
@@ -41,8 +52,11 @@ namespace mnginx{
         std::optional<HTTPData> data;
 
 
-        void parse(std::string_view data);
-        std::pmr::vector<char> generate(); 
+        ParseCode parse(std::string_view data);
+        std::pmr::vector<char> generate();
+
+        static HTTPMethod getMethod(std::string_view str);
+        static std::string_view getMethodString(HTTPMethod method);
     };
 
     struct HTTPResponse{
@@ -61,7 +75,7 @@ namespace mnginx{
         /// Data
         std::optional<HTTPData> data;
 
-        void parse(std::string_view data);
+        ParseCode parse(std::string_view data);
         // It's said that the compiler will use RVO to optimize the code,so std::move is not suggested
         std::pmr::vector<char> generate(); 
     };
