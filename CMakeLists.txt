@@ -9,10 +9,6 @@ aux_source_directory("./src/alib-g3" ALIB_G3_PARTIAL)
 # MINI_NGINX的主要文件：指的是main.cpp,其他文件一般要打包进文件夹哈哈
 aux_source_directory("./src" MINI_NGINX_MAIN)
 
-
-enable_testing()
-include(GoogleTest)
-
 add_executable(mini_nginx 
     ${ALIB_G3_PARTIAL}
     ${MINI_NGINX_MAIN}
@@ -27,5 +23,3 @@ add_executable(mini_nginx_tests
 target_include_directories(mini_nginx_tests PUBLIC ${HEADER_DIR})
 target_link_libraries(mini_nginx_tests PRIVATE gtest gtest_main)
 target_compile_options(mini_nginx_tests PUBLIC -DMNGINX_TESTING -std=c++26)
-
-gtest_discover_tests(mini_nginx_tests)
