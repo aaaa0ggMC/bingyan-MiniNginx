@@ -6,8 +6,8 @@
 using namespace mnginx;
 
 /// @todo WIP
-void HTTPResponse::parse(std::string_view data){
-
+ParseCode HTTPResponse::parse(std::string_view data){
+    return ParseCode::Success;
 }
 
 /** perf
@@ -62,16 +62,144 @@ std::pmr::vector<char> HTTPResponse::generate(){
     return rdata;
 }
 
-void HTTPRequest::parse(std::string_view data){
+// @todo 请求的网页可能带非法字符比如空格，因此有%20的转换！
+ParseCode HTTPRequest::parse(std::string_view str){
+    auto pos = str.find_first_of(' ');
+    auto oldpos = 0;
+    //// Extract Method
+    if(pos == std::string_view::npos)return ParseCode::InvalidFormat;
+    method = getMethod(str.substr(0,pos));
 
+    //// Extract URL
+    oldpos = pos + 1;
+    pos = str.substr(oldpos).find_first_of(' ') + oldpos;
+    if(pos == std::string_view::npos)return ParseCode::InvalidFormat;
+    auto str_part = str.substr(oldpos,pos - oldpos);
+    url.reserve(str_part.size()+1);
+    url.clear();
+    url.insert(url.end(),str_part.begin(),str_part.end());
+
+    //// Extract HTTP Version
+    oldpos = pos+1;
+    if(strncmp(&(str[oldpos]),"HTTP/",5))return ParseCode::InvalidFormat;
+    {
+        char * endptr = nullptr;
+        const char * startptr = &str[oldpos + 5];
+        //// Major
+        long result = strtol(startptr,&endptr,10);
+        if(endptr == startptr){
+            // cast error,return invalid fmt
+            return ParseCode::InvalidFormat;
+        }
+        version.major = result;
+        //// Minor
+        if(*endptr == '.'){// We have a minor version here...
+            startptr = endptr + 1;
+            result = strtol(startptr,&endptr,10);
+            if(startptr == endptr)return ParseCode::InvalidFormat;
+            version.minor = result;
+        }
+        pos = endptr - str.data(); // normally,*endptr == '\r' now
+        if(*endptr != '\r')return ParseCode::InvalidFormat; // SUS
+    }
+
+    auto is_space = [](char ch){
+        return ch == ' ' || ch == '\t';
+    };
+
+    auto is_valid_header_key_char = [](char c){
+        if (std::isalnum(c)) {
+            return true;
+        }
+        switch (c) {
+            case '!': case '#': case '$': case '%': case '&': case '\'':
+            case '*': case '+': case '-': case '.': case '^': case '_':
+            case '`': case '|': case '~':
+                return true;
+            default:
+                return false;
+        }
+    };
+
+    //// Go Down To The Next Line And Extract Headers
+    do{
+        pos += 2; //skip \r\n to next line
+        oldpos = pos;
+        // actually,here we call pos-->count
+        pos = str.substr(oldpos).find_first_of("\r\n");
+        if(pos == std::string_view::npos)return ParseCode::InvalidFormat; // So,there's no ending
+        else if(pos == 0) {
+            pos = oldpos; // keep the right value
+            break; // We reached to the end line
+        }
+
+        // Normal Line
+        std::string_view full_line = str.substr(oldpos,pos);
+        pos += oldpos;
+        if(is_space(full_line[0]))return ParseCode::SpaceInTheFrontOfHeader; // "  Data: Host" is forbidden
+        auto colon_pos = full_line.find_first_of(":");
+        if(colon_pos == std::string_view::npos) return ParseCode::InvalidFormat; // "      \r\n" is forbidden
+        std::string_view key = full_line.substr(0,colon_pos),
+                        value = full_line.substr(colon_pos+1);
+        std::pmr::string p_key (key.begin(),key.end());
+        // Check if key is valid
+        for(char ch : p_key){
+            if(!is_valid_header_key_char(ch))return ParseCode::InvalidKeyName;
+        }
+        // skip spaces
+        int i = 0;
+        for(;is_space(value[i]);++i){
+            // @todo make this configurable
+            if(i > 8){
+                return ParseCode::TooManySpaces;
+            }
+        }
+
+        // @todo add more detects for emplace,use try_emplace
+        headers.emplace(
+            std::move(p_key),
+            std::pmr::string(value.begin() + i,value.end())
+        );
+        //std::cout << "[" << p_key << "]:[" << p_value << "]" << std::endl;
+    }while(true);
+    //// The Rest Of The Content
+    pos += 2;
+    data.emplace();
+    // @todo need to process data with Content-Length or Transfer-Encoding
+    data->insert(data->end(),str.begin() + pos,str.end());
+    return ParseCode::Success;
 }
 
 /// @todo WIP
 std::pmr::vector<char> HTTPRequest::generate(){
     std::pmr::vector<char> rdata;
-
     return rdata;
-} 
+}
+
+
+HTTPRequest::HTTPMethod HTTPRequest::getMethod(std::string_view str){
+    using M = HTTPRequest::HTTPMethod;
+    int str_size = str.size();
+    //discard some useless data
+    if(str_size <= 2)return M::InvalidMethod;
+    
+    if(!strncmp(str.data(),"GET",3))return M::GET;
+    else if(!strncmp(str.data(),"POST",4))return M::POST;
+    else return M::InvalidMethod;
+}
+
+std::string_view HTTPRequest::getMethodString(HTTPRequest::HTTPMethod method){
+    using M = HTTPRequest::HTTPMethod;
+
+    switch(method){
+    case M::GET:
+        return "GET";
+    case M::POST:
+        return "POST";
+    default:
+        return "INVALID";
+    }
+}
 
 
 //// TESTS ////

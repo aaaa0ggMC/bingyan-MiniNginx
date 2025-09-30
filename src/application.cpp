@@ -27,4 +27,11 @@ void Application::setup_logger(){
 //// Main Section ////
 void Application::run(){
     lg << "Hello World!" << endlog;
+
+    HTTPRequest().parse(
+                     "GET / HTTP/1.1\r\n"
+                     "Host: example.com\r\n"
+                     "User-Agent: MyClient/1.0\r\n"
+                     "Accept: */*\r\n"
+                     "\r\nHello World!");
 }
