@@ -1,3 +1,15 @@
+/**
+ * @file application.h
+ * @author aaaa0ggmc (lovelinux@yslwd.eu.org)
+ * @brief The Main Procedure
+ * @version 0.1
+ * @date 2025/09/30
+ * 
+ * @copyright Copyright(c)2025 aaaa0ggmc
+ * 
+ * @start-date 2025/09/30 
+ */
+#define MN_APP 
 #include <alib-g3/alogger.h>
 #include <http_parser.h>
 #include <memory_resource>
@@ -32,3 +44,5 @@ namespace mnginx{
     };
 
 }
+
+#endif

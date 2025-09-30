@@ -26,5 +26,5 @@ void Application::setup_logger(){
 
 //// Main Section ////
 void Application::run(){
-    lg << "Hello World!" << endlog;
+    
 }
