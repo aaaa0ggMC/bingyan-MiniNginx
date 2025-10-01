@@ -6,12 +6,7 @@ if [ -f /etc/arch-release ]; then
     echo "This is Arch Linux."
     sudo pacman --needed -S cmake gtest ninja
 else
-  sudo apt update
-  sudo apt install software-properties-common -y
-  sudo add-apt-repository ppa:ubuntu-toolchain-r/ppa -y
-  sudo apt update
-  sudo apt install gcc g++ cmake build-essential ninja-build -y
-  A="-DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++"
+  sudo apt install gcc g++ cmake build-essential gtest-dev
 fi
 
 mkdir CBuild_CACHE
