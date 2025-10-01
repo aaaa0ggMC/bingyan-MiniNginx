@@ -1,3 +1,16 @@
+/**
+ * @file http_parser.h
+ * @author aaaa0ggmc (lovelinux@yslwd.eu.org)
+ * @brief Simple HTTP Parser
+ * @version 0.1
+ * @date 2025/09/30
+ * 
+ * @copyright Copyright(c)2025 aaaa0ggmc
+ * 
+ * @start-date 2025/09/30 
+ */
+#ifndef MN_PARSER
+#define MN_PARSER
 #include <string>
 #include <unordered_map>
 #include <vector>
@@ -81,3 +94,4 @@ namespace mnginx{
     };
 
 }
+#endif

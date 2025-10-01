@@ -71,6 +71,10 @@
         "set": "cpp",
         "iostream": "cpp",
         "__locale": "cpp",
-        "bitset": "cpp"
+        "bitset": "cpp",
+        "complex": "cpp",
+        "fstream": "cpp",
+        "__config": "cpp",
+        "*.inc": "cpp"
     }
 }
