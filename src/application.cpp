@@ -86,11 +86,7 @@ void Application::run(){
                     handle_client(ev);
                 }
             }else{ // timeout
-<<<<<<< HEAD
-                lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
-=======
                 // lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
->>>>>>> dev
             }
         }else{
             lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
