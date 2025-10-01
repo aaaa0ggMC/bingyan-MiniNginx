@@ -14,14 +14,37 @@ English / [简体中文](./README_cn.md)
 - [MiniNginx](#mininginx)
   - [Table of Contents](#table-of-contents)
   - [What is it](#what-is-it)
+  - [Dependencies](#dependencies)
   - [Building](#building)
+    - [Step1: clone this repo](#step1-clone-this-repo)
+    - [Step2: run scripts](#step2-run-scripts)
   - [License](#license)
   
 
 ## What is it
+It's a simple ngnix sever.
 
+## Dependencies
+- C++ (GCC or Clang or what ever)
+  - The compiler you choose must support -std=c++26
+- Google Test
 
 ## Building
+### Step1: clone this repo
+run 
+```bash
+git clone https://github.com/aaaa0ggMC/bingyan-MiniNginx.git
+cd bingyan-MiniNginx
+git checkout main
+```
+
+### Step2: run scripts
+run
+```bash
+bash ./scripts/configure
+bash ./scripts/build
+```
+build results are stored in ./CBuild/
 
 ## License
 <pre>
