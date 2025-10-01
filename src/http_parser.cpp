@@ -14,7 +14,7 @@ ParseCode HTTPResponse::parse(std::string_view data){
  * @before 6593.11ms for 1'000'000 times ==> 6.59311us /call
  * @after(current) 3217.43ms for 1'000'000  times ==> 3.21743us /call
  */
-std::pmr::vector<char> HTTPResponse::generate(){
+std::pmr::vector<char> HTTPResponse::generate() const{
     using data_t = std::pmr::vector<char>;
     data_t rdata;
     rdata.reserve(2048);
@@ -55,9 +55,8 @@ std::pmr::vector<char> HTTPResponse::generate(){
     }
     rdata.insert(rdata.end(),{'\r','\n'});
     
-    if(!!data){
-        HTTPData & d = *data;
-        rdata.insert(rdata.end(),d.begin(),d.end());
+    if(!!data && data->size() != 0){
+        rdata.insert(rdata.end(),data->begin(),data->end());
     }
     return rdata;
 }
@@ -70,6 +69,9 @@ ParseCode HTTPRequest::parse(std::string_view str){
     //// Extract Method
     if(pos == std::string_view::npos)return ParseCode::InvalidFormat;
     method = getMethod(str.substr(0,pos));
+    if(method == HTTPMethod::InvalidMethod){
+        return ParseCode::InvalidMethod;
+    }
 
     //// Extract URL
     oldpos = pos + 1;
@@ -164,10 +166,8 @@ ParseCode HTTPRequest::parse(std::string_view str){
         //std::cout << "[" << p_key << "]:[" << p_value << "]" << std::endl;
     }while(true);
     //// The Rest Of The Content
-    pos += 2;
-    data.emplace();
-    // @todo need to process data with Content-Length or Transfer-Encoding
-    data->insert(data->end(),str.begin() + pos,str.end());
+    if((str.begin() + (pos+2)) != str.end())return ParseCode::InvalidFormat;
+    // parse function doesnt deal with message body
     return ParseCode::Success;
 }
 
@@ -244,7 +244,7 @@ TEST(HTTPRequest,parse){
                      "Host: example.com\r\n"
                      "User-Agent: MyClient/1.0\r\n"
                      "Accept: */*\r\n"
-                     "\r\nHello World!";
+                     "\r\n";
     ParseCode result = req.parse(data);
     EXPECT_TRUE(req.method == HTTPRequest::HTTPMethod::GET);
     EXPECT_FALSE(req.url.compare("/"));
@@ -252,8 +252,6 @@ TEST(HTTPRequest,parse){
     EXPECT_FALSE(req.headers["Host"].compare("example.com"));
     EXPECT_FALSE(req.headers["User-Agent"].compare("MyClient/1.0"));
     EXPECT_FALSE(req.headers["Accept"].compare("*/*"));
-    std::string str (req.data->begin(),req.data->end());
-    EXPECT_FALSE(str.compare("Hello World!"));
     EXPECT_TRUE(result == ParseCode::Success);
 
     /*

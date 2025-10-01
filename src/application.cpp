@@ -137,21 +137,88 @@ void Application::handle_client(epoll_event & ev){
         shouldClose = true;
     }
 
+    if(shouldClose){
+        cleanup_connection(client_fd);
+        return;
+    }
+
     // @todo remember to add while(1) and write it into buffer
-    size_t count = read(client_fd, buffer, sizeof(buffer));
-    if(count == 0){
-        lg(LOG_INFO) << "Client closed the connection" << endlog;
+    auto it = establishedClients.find(client_fd);
+    if(it == establishedClients.end()){ // no way!
+        // i think there's no way this code could be run
+        lg(LOG_ERROR) << "The coming client is not recorded!" << endlog; 
+        cleanup_connection(client_fd);
+        return;
+    }
+    do{
+        size_t count = read(client_fd, buffer, sizeof(buffer));
+        if(count == 0){
+            lg(LOG_INFO) << "Client closed the connection" << endlog;
+            shouldClose = true;
+        }else if(count == -1 && errno != EAGAIN){
+            lg(LOG_ERROR) << "Error occured when reading data from client:" << strerror(errno) << endlog;
+            shouldClose = true;
+        }else if(count > 0){
+            std::string test(buffer,buffer + count);
+            lg(LOG_INFO) << "Received \"" << test << " \"from client" << endlog;
+            it->second.buffer.insert(it->second.buffer.end(),buffer,buffer + count);
+        }
+        if(count == sizeof(buffer))continue; //maybe there's more data
+    }while(false);
+
+    // @todo if the size of the buffer exceedes 8MB(can be configured later),we treat it as an sus one
+    if(it->second.buffer.size() > 8 * 1024 * 1024){
+        lg(LOG_ERROR) << "The client fd[" << client_fd << "] post toos long a message!" << endlog;
         shouldClose = true;
-    }else if(count == -1 && errno != EAGAIN){
-        lg(LOG_ERROR) << "Error occured when reading data from client:" << strerror(errno) << endlog;
-        shouldClose = true;
-    }else if(count > 0){
-        std::string test(buffer,buffer + count);
-        lg(LOG_INFO) << "Received \"" << test << " \"from client" << endlog;
     }
 
     if(shouldClose){
         cleanup_connection(client_fd);
+    }else{
+        // try to unpack the buffer and extract data
+        std::string_view buffer_str (it->second.buffer.begin() + it->second.find_last_pos,it->second.buffer.end());
+        if(it->second.pending){
+            // @todo WIP
+            handle_pending_request(it->second,client_fd);
+            //maybe we can deal another message then,so no return here
+        }
+
+        auto pos = buffer_str.find("\r\n\r\n");
+
+        if(pos != std::string_view::npos){
+            pos += it->second.find_last_pos + 4;
+            // We dont care about CLEN or OTHERS,now we just analyse the header
+            // the first of the request begins with an alphabet,so we ignore others
+            int i = 0;
+            std::string_view data_chunk (it->second.buffer.begin(),it->second.buffer.begin() + pos);
+            for(;(data_chunk[i] < 'A' || data_chunk[i] > 'Z') && i < data_chunk.size();++i)continue;
+            if(i >= data_chunk.size()){
+                // invalid connection data,so we close the connection
+                cleanup_connection(client_fd);
+                return;
+            }
+            std::string_view valid_chunk (it->second.buffer.begin() + i,it->second.buffer.begin() + pos);
+            it->second.pending_request = HTTPRequest();
+            lg(LOG_INFO) <<  "We have processed:["  << std::string(valid_chunk.begin(),valid_chunk.end()) << "]" << std::endl;
+            if(it->second.pending_request.parse(valid_chunk) != ParseCode::Success){
+                // invalid HTTP Method
+                cleanup_connection(client_fd);
+                return;
+            }else{
+                lg(LOG_TRACE) << "Successfully parsed a header: method[" <<
+                HTTPRequest::getMethodString(it->second.pending_request.method) << "] url[" <<
+                it->second.pending_request.url << "] version[" << it->second.pending_request.version.major << "."
+                << it->second.pending_request.version.minor << "]..." << endlog; 
+            }
+            // note that all the string_view will have memeory issue after this call
+            it->second.buffer.erase(it->second.buffer.begin(),it->second.buffer.begin() + pos); 
+            it->second.find_last_pos = 0;
+            it->second.pending = true;
+            // some simple methods(GET) have no message body
+            handle_pending_request(it->second,client_fd);
+        }else{
+            it->second.find_last_pos = it->second.buffer.size();
+        }
     }
 }
 
@@ -168,4 +235,65 @@ bool Application::cleanup_connection(int fd){
         lg(LOG_INFO) << "Client with fd [" << fd << "] was closed." << endlog;
         return true;
     }
+}
+
+void Application::handle_pending_request(ClientInfo & client,int fd){
+    auto & req = client.pending_request;
+    thread_local static HTTPResponse response = []{
+        HTTPResponse resp;
+        resp.data.emplace();
+        resp.version.major = 1;
+        resp.version.minor = 1;
+        return resp;
+    }();
+    using M = HTTPRequest::HTTPMethod;
+
+    switch(req.method){
+    case M::GET:{
+        if(req.headers.find(KEY_Content_Length) != req.headers.end() ||
+           req.headers.find(KEY_Transfer_Encoding) != req.headers.end()){ //bad request
+            lg(LOG_ERROR) << "Client " << fd << " passed GET request with message body!" << endlog;
+            send_message_simp(fd,HTTPResponse::StatusCode::BadRequest,
+                HTTPResponse::get_status_description(HTTPResponse::StatusCode::BadRequest));
+            cleanup_connection(fd);
+            return;
+        }else{ //nice guys now we can send something useful back
+            response.data->clear();
+            response.headers.clear();
+            const char * test_msg = "Hello World!";
+            response.data->insert(response.data->end(),test_msg,test_msg + strlen(test_msg));
+            response.headers["Words"] = "I Love U";
+            response.status_code = HTTPResponse::StatusCode::OK;
+            response.status_str = "OK";
+            response.headers["Content-Type"] = "text/plain; charset=utf-8";
+            response.headers["Content-Length"] = std::to_string(response.data->size());
+            response.headers["Connection"] = "keep-alive";
+            lg(LOG_TRACE) << "Send reply to client " << fd << endlog;
+            send_message(fd,response);
+        }
+        client.pending = false;
+        break;
+    }
+    case M::POST:{
+
+        break;
+    }
+    default: //no way!
+        break;
+    }
+}
+
+size_t Application::send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str){
+    thread_local static HTTPResponse resp;
+    resp.version.major = 1;
+    resp.version.minor = 1;
+    resp.status_code = code;
+    resp.status_str.assign(stat_str.begin(),stat_str.end());
+
+    return send_message(fd,resp);
+}
+
+size_t Application::send_message(int fd,const HTTPResponse & resp){
+    auto data = resp.generate();
+    return send(fd,data.data(),data.size(),0);
 }
