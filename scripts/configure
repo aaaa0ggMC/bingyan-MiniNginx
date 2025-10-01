@@ -3,10 +3,10 @@
 # Install dependencies
 if [ -f /etc/arch-release ]; then
     echo "This is Arch Linux."
-    sudo pacman --needed -S cmake gtest ninja
+    sudo pacman --needed -S cmake gtest ninja gcc
 else
   echo "This is not Arch Linux."
-  sudo apt-get install build-essential cmake libgtest-dev ninja-build
+  sudo apt-get install build-essential cmake libgtest-dev ninja-build gcc
 fi
 
 mkdir CBuild_CACHE

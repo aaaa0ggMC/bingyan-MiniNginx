@@ -11,6 +11,8 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+    - name: No man-db pls
+      run: sudo apt-get remove --purge man-db
     - uses: actions/checkout@v4
     - name: configure
       run: sh ./scripts/configure
