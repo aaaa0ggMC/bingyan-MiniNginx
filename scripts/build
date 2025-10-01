@@ -1,0 +1,5 @@
+#!/bin/bash
+cd CBuild_CACHE
+mkdir ../CBuild
+
+ninja
