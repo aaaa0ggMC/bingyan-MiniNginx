@@ -86,7 +86,11 @@ void Application::run(){
                     handle_client(ev);
                 }
             }else{ // timeout
+<<<<<<< HEAD
                 lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
+=======
+                // lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
+>>>>>>> dev
             }
         }else{
             lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
@@ -274,8 +278,94 @@ void Application::handle_pending_request(ClientInfo & client,int fd){
         client.pending = false;
         break;
     }
+<<<<<<< HEAD
     case M::POST:{
 
+=======
+    case M::POST:{ // there's data in the message body,so we need to extract the data
+        bool ok = false;
+        auto p = req.headers.find(KEY_Transfer_Encoding);
+        if(!client.pending_request.data)client.pending_request.data.emplace();
+        if(p != req.headers.end()){
+            if(p->second.compare("chunked")){
+                lg(LOG_ERROR) << "Transfer-Encoding mode "  << p->second <<  " is not supported." << std::endl;
+                return;
+            }
+            // chunked mode
+            // read existing data
+            while(true){
+                std::string_view buffer (client.buffer.begin(),client.buffer.end());
+                char * endptr = nullptr;
+                size_t pos = buffer.find_first_of("\r\n");
+                if(pos == std::string_view::npos)return; // data is not well prepared
+                int count = strtol(buffer.data(),&endptr,16); // @note the chunked data is a hex number
+                if(endptr == buffer.data()){ // invalid character
+                        lg(LOG_ERROR) << "Client " << fd << " passed POST request with bad message body!" << endlog;
+                        send_message_simp(fd,HTTPResponse::StatusCode::BadRequest,
+                            HTTPResponse::get_status_description(HTTPResponse::StatusCode::BadRequest));
+                        cleanup_connection(fd);
+                }
+                if(((int)(buffer.size()) - 4 - count - pos) >= 0){ // why minus 4? ==> two \r\n
+                    if(count)client.pending_request.data->insert(client.pending_request.data->end(),
+                            buffer.begin() + (pos+2),buffer.begin() + (pos+2+count));
+                    // check whether it ends with \r\n]
+                    if(strncmp("\r\n",buffer.data() + (pos+2+count),2)){
+                        lg(LOG_ERROR) << "Client " << fd << " passed POST request with bad message body!" << endlog;
+                        send_message_simp(fd,HTTPResponse::StatusCode::BadRequest,
+                            HTTPResponse::get_status_description(HTTPResponse::StatusCode::BadRequest));
+                        cleanup_connection(fd);
+                        return;
+                    }
+                    // update buffer
+                    client.buffer.erase(client.buffer.begin(),client.buffer.begin() + (pos+4+count));
+                    if(count == 0){
+                        // that means the chunk ended
+                        ok = true;
+                        break;
+                    }
+                }else return;
+            }
+        }
+        if(!ok){
+            p = req.headers.find(KEY_Content_Length);
+            if(p != req.headers.end()){
+                char * endptr = nullptr;
+                int length = strtol(p->second.data(),&endptr,10);
+                if(endptr != p->second.data()){ // actually have data here!
+                    if(client.buffer.size() < length){
+                        return; // data not well prepared
+                    }
+                    lg(LOG_WARN) << "Data Well Prepared!" << endlog;
+                    client.pending_request.data->insert(
+                        client.pending_request.data->end(),
+                        client.buffer.begin(),
+                        client.buffer.begin() + length
+                    );
+                    // update buffer
+                    client.buffer.erase(client.buffer.begin(),client.buffer.begin() + length);
+                }// else just ignore,anyway,the task is not pending now
+            }
+        }
+        // @todo ... add code here
+        client.pending = false;
+        lg(LOG_INFO) << "Received POST message from " << fd 
+                 << " - Method: " << HTTPRequest::getMethodString(client.pending_request.method)
+                 << " - URL: " << client.pending_request.url
+                 << " - Data size: " << (client.pending_request.data ? client.pending_request.data->size() : 0)
+                 << " bytes" << endlog;
+        response.data->clear();
+        response.headers.clear();
+        const char * test_msg = "Hello World!";
+        response.data->insert(response.data->end(),test_msg,test_msg + strlen(test_msg));
+        response.headers["Words"] = "I Love U";
+        response.status_code = HTTPResponse::StatusCode::OK;
+        response.status_str = "OK";
+        response.headers["Content-Type"] = "text/plain; charset=utf-8";
+        response.headers["Content-Length"] = std::to_string(response.data->size());
+        response.headers["Connection"] = "keep-alive";
+        lg(LOG_INFO) << "Send reply to client " << fd << endlog;
+        send_message(fd,response);
+>>>>>>> dev
         break;
     }
     default: //no way!
