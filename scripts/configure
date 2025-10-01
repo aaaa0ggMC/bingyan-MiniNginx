@@ -1,0 +1,15 @@
+#!/bin/sh
+set A=""
+
+# Install dependencies
+if [ -f /etc/arch-release ]; then
+    echo "This is Arch Linux."
+    sudo pacman --needed --noconfirm -S cmake gtest ninja
+else
+  sudo apt install gcc g++ cmake build-essential gtest-dev -y
+fi
+
+mkdir CBuild_CACHE
+cd CBuild_CACHE
+
+cmake .. $A -DCMAKE_BUILD_TYPE=Release -G "Ninja" -DCMAKE_INSTALL_PREFIX=/usr -DCI_BUILD=1

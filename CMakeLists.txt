@@ -9,6 +9,13 @@ aux_source_directory("./src/alib-g3" ALIB_G3_PARTIAL)
 # MINI_NGINX的主要文件：指的是main.cpp,其他文件一般要打包进文件夹哈哈
 aux_source_directory("./src" MINI_NGINX_MAIN)
 
+if(CI_BUILD)
+set(build_dir "${CMAKE_SOURCE_DIR}/CBuild")
+set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${build_dir})
+set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${build_dir})
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${build_dir})
+endif()
+
 add_executable(mini_nginx 
     ${ALIB_G3_PARTIAL}
     ${MINI_NGINX_MAIN}

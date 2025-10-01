@@ -1,0 +1,35 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "main" , "dev" ]
+  pull_request:
+    branches: [ "main" , "dev" ]
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:latest
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Update Arch Linux and install dependencies
+      run: |
+        pacman -Syu --noconfirm
+        pacman -S --noconfirm base-devel git gcc bash glibc coreutils which
+        
+    - name: configure
+      run: bash ./scripts/configure
+      
+    - name: build
+      run: bash ./scripts/build
+      
+    - name: RunningTests
+      run: cd CBuild ; ./mini_nginx_tests
+      
+    - uses: actions/upload-artifact@v4
+      with:
+        name: MiniNginx-ArchLinux
+        path: CBuild/
