@@ -137,19 +137,6 @@ void Application::handle_client(epoll_event & ev){
         shouldClose = true;
     }
 
-<<<<<<< HEAD
-    // @todo remember to add while(1) and write it into buffer
-    size_t count = read(client_fd, buffer, sizeof(buffer));
-    if(count == 0){
-        lg(LOG_INFO) << "Client closed the connection" << endlog;
-        shouldClose = true;
-    }else if(count == -1 && errno != EAGAIN){
-        lg(LOG_ERROR) << "Error occured when reading data from client:" << strerror(errno) << endlog;
-        shouldClose = true;
-    }else if(count > 0){
-        std::string test(buffer,buffer + count);
-        lg(LOG_INFO) << "Received \"" << test << " \"from client" << endlog;
-=======
     if(shouldClose){
         cleanup_connection(client_fd);
         return;
@@ -183,13 +170,10 @@ void Application::handle_client(epoll_event & ev){
     if(it->second.buffer.size() > 8 * 1024 * 1024){
         lg(LOG_ERROR) << "The client fd[" << client_fd << "] post toos long a message!" << endlog;
         shouldClose = true;
->>>>>>> dev
     }
 
     if(shouldClose){
         cleanup_connection(client_fd);
-<<<<<<< HEAD
-=======
     }else{
         // try to unpack the buffer and extract data
         std::string_view buffer_str (it->second.buffer.begin() + it->second.find_last_pos,it->second.buffer.end());
@@ -235,7 +219,6 @@ void Application::handle_client(epoll_event & ev){
         }else{
             it->second.find_last_pos = it->second.buffer.size();
         }
->>>>>>> dev
     }
 }
 
