@@ -9,15 +9,23 @@
  * 
  * @start-date 2025/09/30 
  */
+#ifndef MN_APP
 #define MN_APP 
 #include <alib-g3/alogger.h>
 #include <http_parser.h>
 #include <memory_resource>
+#include <epoll.h>
+#include <sys/socket.h>
+#include <arpa/inet.h>
 
 // Since my library is verbose,so here I globally use the namespace
 using namespace alib::g3;
 
 namespace mnginx{
+    struct ClientInfo{
+
+    };
+
     class Application{
     private:
         //// Log System
@@ -28,16 +36,27 @@ namespace mnginx{
         std::pmr::synchronized_pool_resource pool;
         std::pmr::memory_resource * resource;
 
+        int server_fd;
+        sockaddr_in address;
+        EPoll epoll;
 
+        std::pmr::unordered_map<int,ClientInfo> establishedClients; 
     public:
         int return_result;
 
         Application();
+        ~Application();
 
         //// Setup Section ////
         void setup();
         void setup_general();
+        void setup_server();
         void setup_logger();
+
+        //// sub procedures ////
+        void accept_connections();
+        void handle_client(epoll_event & ev);
+        bool cleanup_connection(int fd);
 
         //// Main Section ////
         void run();
