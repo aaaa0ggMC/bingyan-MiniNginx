@@ -22,6 +22,7 @@ namespace mnginx{
     using HTTPHeaderHashMap = std::pmr::unordered_map<std::pmr::string,std::pmr::string>; 
 
     constexpr const char * KEY_Content_Length = "Content-Length";
+    constexpr const char * KEY_Transfer_Encoding = "Transfer-Encoding";
 
     /**
      * @brief HTTP Version Control,since this project is a prototype,mininginx uses HTTP/1.1
@@ -39,7 +40,8 @@ namespace mnginx{
         InvalidFormat,
         TooManySpaces,
         SpaceInTheFrontOfHeader,
-        InvalidKeyName
+        InvalidKeyName,
+        InvalidMethod
     };
 
     /**
@@ -47,7 +49,7 @@ namespace mnginx{
      * @start-date 2025/09/30
      */
     struct HTTPRequest{
-        enum HTTPMethod : int32_t{
+        enum class HTTPMethod : int32_t{
             GET,
             POST,
             InvalidMethod
@@ -90,7 +92,7 @@ namespace mnginx{
 
         ParseCode parse(std::string_view data);
         // It's said that the compiler will use RVO to optimize the code,so std::move is not suggested
-        std::pmr::vector<char> generate(); 
+        std::pmr::vector<char> generate() const; 
     };
 
 }

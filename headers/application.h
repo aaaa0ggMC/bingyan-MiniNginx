@@ -23,7 +23,19 @@ using namespace alib::g3;
 
 namespace mnginx{
     struct ClientInfo{
+<<<<<<< HEAD
 
+=======
+        std::pmr::vector<char> buffer;
+        size_t find_last_pos;
+        HTTPRequest pending_request;
+        bool pending; 
+
+        inline ClientInfo(){
+            find_last_pos = 0;
+            pending = false;
+        }
+>>>>>>> dev
     };
 
     class Application{
@@ -57,6 +69,13 @@ namespace mnginx{
         void accept_connections();
         void handle_client(epoll_event & ev);
         bool cleanup_connection(int fd);
+<<<<<<< HEAD
+=======
+        void handle_pending_request(ClientInfo & client,int fd);
+        /// note that code must lower than 1000
+        size_t send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str);
+        size_t send_message(int fd,const HTTPResponse & resp);
+>>>>>>> dev
 
         //// Main Section ////
         void run();
