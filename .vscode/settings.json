@@ -75,16 +75,7 @@
         "complex": "cpp",
         "fstream": "cpp",
         "__config": "cpp",
-<<<<<<< HEAD
-<<<<<<< HEAD
-        "*.inc": "cpp"
-=======
         "*.inc": "cpp",
         "streambuf": "cpp"
->>>>>>> dev
-=======
-        "*.inc": "cpp",
-        "streambuf": "cpp"
->>>>>>> dev
     }
 }

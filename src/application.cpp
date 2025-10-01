@@ -278,10 +278,6 @@ void Application::handle_pending_request(ClientInfo & client,int fd){
         client.pending = false;
         break;
     }
-<<<<<<< HEAD
-    case M::POST:{
-
-=======
     case M::POST:{ // there's data in the message body,so we need to extract the data
         bool ok = false;
         auto p = req.headers.find(KEY_Transfer_Encoding);
@@ -365,7 +361,6 @@ void Application::handle_pending_request(ClientInfo & client,int fd){
         response.headers["Connection"] = "keep-alive";
         lg(LOG_INFO) << "Send reply to client " << fd << endlog;
         send_message(fd,response);
->>>>>>> dev
         break;
     }
     default: //no way!
