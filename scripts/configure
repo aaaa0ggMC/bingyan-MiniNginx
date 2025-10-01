@@ -4,7 +4,7 @@ set A=""
 # Install dependencies
 if [ -f /etc/arch-release ]; then
     echo "This is Arch Linux."
-    sudo pacman --needed -S cmake gtest ninja -y
+    sudo pacman --needed --noconfirm -S cmake gtest ninja
 else
   sudo apt install gcc g++ cmake build-essential gtest-dev -y
 fi
