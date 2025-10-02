@@ -107,8 +107,19 @@ namespace mnginx{
         std::optional<HTTPData> data;
 
         ParseCode parse(std::string_view data);
+
+        enum class TransferMode : int32_t{
+            ContentLength,
+            Chunked
+        };
+
+        // make sure clen or chunked is set
+        void checkout_data(TransferMode = TransferMode::ContentLength);
+
         // It's said that the compiler will use RVO to optimize the code,so std::move is not suggested
-        std::pmr::vector<char> generate() const; 
+        std::pmr::vector<char> generate(TransferMode = TransferMode::ContentLength) const; 
+
+        void reset();
     };
 
 }

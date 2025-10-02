@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <stack>
 #include <gtest/gtest.h>
+#include <http_parser.h>
 
 using namespace mnginx;
 
@@ -23,6 +24,7 @@ void Application::setup(){
     setup_general();
     setup_logger();
 
+    setup_handlers();
     setup_server();
 }
 
@@ -48,14 +50,20 @@ void Application::setup_server(){
     // non-block mode
     fcntl(server_fd,F_SETFL,fcntl(server_fd,F_GETFL,0) | O_NONBLOCK);
 
+    // resuable port
+    int reuse = 1;
+    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+        lg(LOG_WARN) << "Cannot set SO_REUSEADDR:" << strerror(errno) << endlog;
+    }
+
     if(bind(server_fd,(sockaddr*)&address,sizeof(address)) == -1){
-        lg(LOG_CRITI) << "Cannot bind the port " << address.sin_port << " for the server:" << strerror(errno) << endlog;
+        lg(LOG_CRITI) << "Cannot bind the port " << ntohs(address.sin_port) << " for the server:" << strerror(errno) << endlog;
         std::exit(-1);
     }
 
     // n is the count of backlog,other clients will be suspended
     if(listen(server_fd,1024) == -1){
-        lg(LOG_CRITI) << "Cannot listen the port " << address.sin_port << ":" << strerror(errno) << endlog;
+        lg(LOG_CRITI) << "Cannot listen the port " << ntohs(address.sin_port) << ":" << strerror(errno) << endlog;
         std::exit(-1);
     }
     
@@ -71,6 +79,47 @@ void Application::setup_server(){
 void Application::setup_logger(){
     logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest.log",4 * 1024 * 1024));
     logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
+}
+
+void Application::setup_handlers(){
+    StateNode file;
+    file.node(HandlerRule::Match_Any);
+    handlers.add_new_handler(file, [](HTTPRequest & rq, const std::pmr::vector<std::pmr::string>& vals, HTTPResponse& rp){
+        rp.status_code = HTTPResponse::StatusCode::OK;
+        rp.status_str = "OK";
+        rp.headers["Content-Type"] = "text/html; charset=utf-8";
+        rp.headers["Connection"] = "close";
+        
+        std::string first_val = vals.empty() ? "No Value" : std::string(vals[0].data(), vals[0].size());
+        std::string html = "<html><body><h1>Hello World</h1><p>Value: " + first_val + "</p></body></html>";
+        
+        // 直接构造 HTTPData (pmr::vector<char>)
+        rp.data.emplace(html.begin(), html.end());
+        rp.headers[KEY_Content_Length] = std::to_string(rp.data->size());
+        
+        return HandleResult::Continue;
+    });
+    file = StateNode();
+    file.node("file").node(HandlerRule::Match_Any);
+    handlers.add_new_handler(file, [](HTTPRequest & rq, const std::pmr::vector<std::pmr::string>& vals, HTTPResponse& rp){
+        rp.status_code = HTTPResponse::StatusCode::OK;
+        rp.status_str = "OK";
+        rp.headers["Content-Type"] = "text/plain; charset=utf-8";
+        rp.headers["Connection"] = "close";
+        
+        // let's read
+        std::string ou = "";
+        std::string path ="/sorry/path/encrypted/";
+        path += vals[1];
+        alib::g3::Util::io_readAll(path,ou);
+        
+        std::cout << "PATH:" << path << std::endl;
+
+        // 直接构造 HTTPData (pmr::vector<char>)
+        rp.data.emplace(ou.begin(), ou.end());
+        
+        return HandleResult::Continue;
+    });
 }
 
 //// Main Section ////
@@ -260,18 +309,18 @@ void Application::handle_pending_request(ClientInfo & client,int fd){
             cleanup_connection(fd);
             return;
         }else{ //nice guys now we can send something useful back
-            response.data->clear();
-            response.headers.clear();
-            const char * test_msg = "Hello World!";
-            response.data->insert(response.data->end(),test_msg,test_msg + strlen(test_msg));
-            response.headers["Words"] = "I Love U";
-            response.status_code = HTTPResponse::StatusCode::OK;
-            response.status_str = "OK";
-            response.headers["Content-Type"] = "text/plain; charset=utf-8";
-            response.headers["Content-Length"] = std::to_string(response.data->size());
-            response.headers["Connection"] = "keep-alive";
-            lg(LOG_TRACE) << "Send reply to client " << fd << endlog;
-            send_message(fd,response);
+            HandlerFn fn;
+            std::pmr::vector<std::pmr::string> vals;
+            auto result = handlers.parseURL(client.pending_request.url.main_path(),fn,vals);
+            if(result == StateTree::ParseResult::OK){
+                response.reset();
+                fn(client.pending_request,vals,response);
+                send_message(fd,response);
+            }else{
+                lg(LOG_INFO) << "Found nothing for the client " << (int)result << endlog;
+                // @todo add a not found handler!
+                send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
+            }
         }
         client.pending = false;
         break;
@@ -342,23 +391,18 @@ void Application::handle_pending_request(ClientInfo & client,int fd){
         }
         // @todo ... add code here
         client.pending = false;
-        lg(LOG_INFO) << "Received POST message from " << fd 
-                 << " - Method: " << HTTPRequest::getMethodString(client.pending_request.method)
-                 << " - URL: " << client.pending_request.url.full_path()
-                 << " - Data size: " << (client.pending_request.data ? client.pending_request.data->size() : 0)
-                 << " bytes" << endlog;
-        response.data->clear();
-        response.headers.clear();
-        const char * test_msg = "Hello World!";
-        response.data->insert(response.data->end(),test_msg,test_msg + strlen(test_msg));
-        response.headers["Words"] = "I Love U";
-        response.status_code = HTTPResponse::StatusCode::OK;
-        response.status_str = "OK";
-        response.headers["Content-Type"] = "text/plain; charset=utf-8";
-        response.headers["Content-Length"] = std::to_string(response.data->size());
-        response.headers["Connection"] = "keep-alive";
-        lg(LOG_INFO) << "Send reply to client " << fd << endlog;
-        send_message(fd,response);
+
+        HandlerFn fn;
+        std::pmr::vector<std::pmr::string> vals;
+        auto result = handlers.parseURL(client.pending_request.url.main_path(),fn,vals);
+        if(result == StateTree::ParseResult::OK){
+            response.reset();
+            fn(client.pending_request,vals,response);
+            send_message(fd,response);
+        }else{
+            lg(LOG_INFO) << "Found nothing for the client" << endlog;
+            send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
+        }
         break;
     }
     default: //no way!
@@ -372,11 +416,15 @@ size_t Application::send_message_simp(int fd,HTTPResponse::StatusCode code,std::
     resp.version.minor = 1;
     resp.status_code = code;
     resp.status_str.assign(stat_str.begin(),stat_str.end());
+    // checkout will auto do this
+    // resp.headers[KEY_Content_Length] = "0";
 
     return send_message(fd,resp);
 }
 
-size_t Application::send_message(int fd,const HTTPResponse & resp){
+size_t Application::send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMode mode){
+    // auto checkout
+    resp.checkout_data(mode);
     auto data = resp.generate();
     return send(fd,data.data(),data.size(),0);
 }
@@ -466,6 +514,7 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,HandlerFn 
         std::string_view name = "";
         Node * match_any = nullptr;
         bool find_ok = false;
+        bool no_child = true;
 
         pos = main_path.find_first_of('/');
         if(pos != std::string_view::npos){
@@ -475,6 +524,7 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,HandlerFn 
         }
 
         for(Node & n : current->nexts){
+            if(no_child && !n.nexts.empty())no_child = false;
             if(n.rule == HandlerRule::Match_Any){
                 match_any = &n;
                 continue;
@@ -496,7 +546,19 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,HandlerFn 
         if(!find_ok){
             if(match_any){
                 current = match_any;
-            }else return ParseResult::Node404;
+            }else if(no_child && current->nexts.size() == 1){ // that means we stepped into the end
+                if(current->nexts[0].handler){
+                    fn = current->nexts[0].handler;
+                    if(node_vals.size() >= 1){
+                        std::pmr::string & last = node_vals[node_vals.size()-1];
+                        last.append("/");
+                        last.append(main_path.begin(),main_path.end());
+                        std::cout << "child:" << last << std::endl;
+                    }
+                    return ParseResult::OK; // now we added the "suffix"
+                }else return ParseResult::Node404;
+            }
+            else return ParseResult::Node404;
         }
 
         node_vals.emplace_back(name.begin(),name.end());

@@ -54,6 +54,7 @@ namespace mnginx{
 
         inline StateNode(){
             empty = true;
+            data_str = "";
             rule = HandlerRule::FixedString;
         }
 
@@ -152,6 +153,7 @@ namespace mnginx{
         void setup_general();
         void setup_server();
         void setup_logger();
+        void setup_handlers();
 
         //// sub procedures ////
         void accept_connections();
@@ -160,7 +162,7 @@ namespace mnginx{
         void handle_pending_request(ClientInfo & client,int fd);
         /// note that code must lower than 1000
         size_t send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str);
-        size_t send_message(int fd,const HTTPResponse & resp);
+        size_t send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMode = HTTPResponse::TransferMode::ContentLength);
 
         //// Main Section ////
         void run();

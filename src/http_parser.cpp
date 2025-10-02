@@ -14,7 +14,7 @@ ParseCode HTTPResponse::parse(std::string_view data){
  * @before 6593.11ms for 1'000'000 times ==> 6.59311us /call
  * @after(current) 3217.43ms for 1'000'000  times ==> 3.21743us /call
  */
-std::pmr::vector<char> HTTPResponse::generate() const{
+std::pmr::vector<char> HTTPResponse::generate(TransferMode mode) const{
     using data_t = std::pmr::vector<char>;
     data_t rdata;
     rdata.reserve(2048);
@@ -59,6 +59,21 @@ std::pmr::vector<char> HTTPResponse::generate() const{
         rdata.insert(rdata.end(),data->begin(),data->end());
     }
     return rdata;
+}
+
+void HTTPResponse::checkout_data(TransferMode mode){
+    switch(mode){
+    case TransferMode::ContentLength:
+        // @todo use performant solutions to cast int to string
+        headers[KEY_Content_Length] = std::to_string((data)?data->size():0);
+        break;
+    case TransferMode::Chunked:
+        // @todo not supported now
+        std::cerr << "Chunked mode is not supported!" << std::endl;
+        break;
+    default:
+        break;
+    }
 }
 
 // 请求的网页可能带非法字符比如空格，因此有%20的转换！(I've done this)
@@ -251,6 +266,15 @@ int URL::parse_raw_url(std::string_view raw){
 std::pmr::unordered_map<std::pmr::string,std::pmr::string> URL::get_args(){
     // @todo WIP
     return {};
+}
+
+void HTTPResponse::reset(){
+    version.major = 1;
+    version.minor = 1;
+    status_str = "OK";
+    status_code = StatusCode::OK;
+    headers.clear();
+    if(!!data)data->clear();
 }
 
 

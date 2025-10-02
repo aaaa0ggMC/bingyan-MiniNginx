@@ -77,6 +77,8 @@
         "__config": "cpp",
         "*.inc": "cpp",
         "streambuf": "cpp",
-        "__node_handle": "cpp"
+        "__node_handle": "cpp",
+        "random": "cpp",
+        "core": "cpp"
     }
 }
