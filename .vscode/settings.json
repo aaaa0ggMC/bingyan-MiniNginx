@@ -76,6 +76,7 @@
         "fstream": "cpp",
         "__config": "cpp",
         "*.inc": "cpp",
-        "streambuf": "cpp"
+        "streambuf": "cpp",
+        "__node_handle": "cpp"
     }
 }
