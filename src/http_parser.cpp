@@ -61,7 +61,7 @@ std::pmr::vector<char> HTTPResponse::generate() const{
     return rdata;
 }
 
-// @todo 请求的网页可能带非法字符比如空格，因此有%20的转换！
+// 请求的网页可能带非法字符比如空格，因此有%20的转换！(I've done this)
 /* perf: 2028.07ms for 1'000'000 calls   ==> 2.02807us / call*/
 ParseCode HTTPRequest::parse(std::string_view str){
     auto pos = str.find_first_of(' ');
@@ -78,9 +78,9 @@ ParseCode HTTPRequest::parse(std::string_view str){
     pos = str.substr(oldpos).find_first_of(' ') + oldpos;
     if(pos == std::string_view::npos)return ParseCode::InvalidFormat;
     auto str_part = str.substr(oldpos,pos - oldpos);
-    url.reserve(str_part.size()+1);
-    url.clear();
-    url.insert(url.end(),str_part.begin(),str_part.end());
+    if(url.parse_raw_url(str_part) != 0){
+        return ParseCode::InvalidURL;
+    }
 
     //// Extract HTTP Version
     oldpos = pos+1;
@@ -202,6 +202,57 @@ std::string_view HTTPRequest::getMethodString(HTTPRequest::HTTPMethod method){
     }
 }
 
+//// URL ////
+int URL::parse_raw_url(std::string_view raw){
+    static auto acceptable = [](long ch){
+        if(ch == 0x09 || ch == 0x0A || ch == 0x0D)return true;
+        else if(ch <= 0x1F || ch == 0x7F || ch > 0xFF)return false;
+        else return true;
+    };
+    int64_t pos = (int64_t)raw.find_first_of("?");
+    if(pos == std::string_view::npos)pos = -1;
+    int64_t original = pos;
+
+    // parse characters and find the first "?"
+    full_path_.clear();
+    full_path_.reserve(raw.size()+1);
+    for(size_t i = 0;i < raw.size();++i){
+        if(raw[i] == '%'){
+            if((int)raw.size()-(int)i < 2)break;
+            else{
+                char ch[3] = {0};
+                char * endptr;
+                ch[0] = raw[++i];
+                ch[1] = raw[++i];
+
+                long result = strtol(ch,&endptr,16);
+                if(!acceptable(result) || endptr != &(ch[2])){
+                    // 3 ch is not added
+                    if(i <= original)pos -= (endptr - ch) - 1;
+                    i -= (&(ch[2]) - endptr);
+                    continue;
+                } // which means this is an invalid number
+                full_path_.push_back((char)result);
+                // 2ch is not added
+                if(i <= original)pos -= 2;
+            }
+        }else if(raw[i] == '+')full_path_.push_back(' ');
+        else full_path_.push_back(raw[i]);
+    }
+
+    // generate main view
+    // test if(pos >= 0)std::cout << "Charch:" <<  full_path_[pos] << std::endl;
+    if(pos >= 0)main_path_ = std::string_view(full_path_.begin(),full_path_.begin() + pos);
+    else main_path_ = std::string_view(full_path_.begin(),full_path_.end());
+
+    return 0;
+}
+
+std::pmr::unordered_map<std::pmr::string,std::pmr::string> URL::get_args(){
+    // @todo WIP
+    return {};
+}
+
 
 //// TESTS ////
 #ifdef MNGINX_TESTING
@@ -247,7 +298,7 @@ TEST(HTTPRequest,parse){
                      "\r\n";
     ParseCode result = req.parse(data);
     EXPECT_TRUE(req.method == HTTPRequest::HTTPMethod::GET);
-    EXPECT_FALSE(req.url.compare("/"));
+    EXPECT_FALSE(req.url.full_path().compare("/"));
     EXPECT_TRUE(req.headers.size() == 3);
     EXPECT_FALSE(req.headers["Host"].compare("example.com"));
     EXPECT_FALSE(req.headers["User-Agent"].compare("MyClient/1.0"));
@@ -287,5 +338,96 @@ TEST(HTTPResponse, generateFullIntegrity) {
     EXPECT_EQ(response_str, expected_response);
     EXPECT_EQ(response_str.length(), expected_response.length());
 }*/
+
+TEST(URL, BasicParsing) {
+    URL url;
+    
+    // 测试基本解码
+    EXPECT_EQ(url.parse_raw_url("/hello%20world"), 0);
+    EXPECT_EQ(url.full_path(), "/hello world");
+    EXPECT_EQ(url.main_path(), "/hello world");
+}
+
+TEST(URL, QueryStringSeparation) {
+    URL url;
+    
+    // 测试查询字符串分离
+    EXPECT_EQ(url.parse_raw_url("/path%2Fto?name=value"), 0);
+    EXPECT_EQ(url.full_path(), "/path/to?name=value");
+    EXPECT_EQ(url.main_path(), "/path/to");  // 应该只到问号前
+}
+
+TEST(URL, EncodedQuestionMark) {
+    URL url;
+    
+    // 测试编码的问号（应该在路径中）
+    EXPECT_EQ(url.parse_raw_url("/path%3Fto/file?real=query"), 0);
+    EXPECT_EQ(url.full_path(), "/path?to/file?real=query");
+    EXPECT_EQ(url.main_path(), "/path?to/file");  // %3F解码的?在路径中
+}
+
+TEST(URL, PlusToSpace) {
+    URL url;
+    
+    // 测试+号转空格
+    EXPECT_EQ(url.parse_raw_url("/search+query?q=hello+world"), 0);
+    EXPECT_EQ(url.full_path(), "/search query?q=hello world");
+    EXPECT_EQ(url.main_path(), "/search query");
+}
+
+TEST(URL, InvalidEncoding) {
+    URL url;
+    
+    // 测试非法编码
+    url.parse_raw_url("/path%GG/file");
+    EXPECT_FALSE(url.full_path().compare("/pathGG/file"));  // 非法十六进制
+    url.parse_raw_url("/path%2/file");
+    EXPECT_FALSE(url.full_path().compare("/path/file"));   // 不完整编码
+}
+
+TEST(URL, ControlCharacters) {
+    URL url;
+    
+    // 测试控制字符过滤
+    EXPECT_EQ(url.parse_raw_url("/safe%09tab"), 0);     // TAB允许
+    EXPECT_EQ(url.parse_raw_url("/safe%0Anewline"), 0); // 换行允许  
+    url.parse_raw_url("/danger%00null");
+    EXPECT_FALSE(url.full_path().compare("/dangernull")); // NUL字符应该拒绝个屁，忽略就行
+}
+
+TEST(URL, NoQueryString) {
+    URL url;
+    
+    // 测试没有查询字符串的情况
+    EXPECT_EQ(url.parse_raw_url("/simple/path"), 0);
+    EXPECT_EQ(url.full_path(), "/simple/path");
+    EXPECT_EQ(url.main_path(), "/simple/path");
+}
+
+TEST(URL, ComplexExample) {
+    URL url;
+    
+    // 复杂测试用例
+    EXPECT_EQ(url.parse_raw_url("/api%2Fusers%2F123%3Faction%3Dview?page=1&size=20"), 0);
+    EXPECT_EQ(url.full_path(), "/api/users/123?action=view?page=1&size=20");
+    EXPECT_EQ(url.main_path(), "/api/users/123?action=view");
+}
+
+TEST(URL, EdgeCases) {
+    URL url;
+    
+    // 边界情况测试
+    EXPECT_EQ(url.parse_raw_url(""), 0);  // 空字符串
+    EXPECT_EQ(url.parse_raw_url("?"), 0); // 只有问号
+    EXPECT_EQ(url.parse_raw_url("%20"), 0); // 只有编码空格
+}
+
+TEST(URL, MultipleEncodings) {
+    URL url;
+    
+    // 测试连续编码
+    EXPECT_EQ(url.parse_raw_url("/%25%32%30test"), 0); // %25=% %32=2 %30=0 → %20=空格
+    EXPECT_EQ(url.full_path(), "/%20test");
+}
 
 #endif

@@ -41,7 +41,23 @@ namespace mnginx{
         TooManySpaces,
         SpaceInTheFrontOfHeader,
         InvalidKeyName,
-        InvalidMethod
+        InvalidMethod,
+        InvalidURL
+    };
+
+    struct URL{
+    private:
+        std::pmr::string full_path_;
+        std::string_view main_path_;
+    public:
+        inline const std::pmr::string& full_path(){return full_path_;}
+        inline std::string_view main_path(){
+            if(full_path_.empty())return "";
+            return main_path_;
+        }
+
+        int parse_raw_url(std::string_view raw_url);
+        std::pmr::unordered_map<std::pmr::string,std::pmr::string> get_args();
     };
 
     /**
@@ -57,7 +73,7 @@ namespace mnginx{
 
         //// Request Line
         HTTPMethod method;
-        std::pmr::string url;
+        URL url;
         HTTPVersion version;
 
         //// Header

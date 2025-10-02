@@ -207,7 +207,7 @@ void Application::handle_client(epoll_event & ev){
             }else{
                 lg(LOG_TRACE) << "Successfully parsed a header: method[" <<
                 HTTPRequest::getMethodString(it->second.pending_request.method) << "] url[" <<
-                it->second.pending_request.url << "] version[" << it->second.pending_request.version.major << "."
+                it->second.pending_request.url.full_path() << "] version[" << it->second.pending_request.version.major << "."
                 << it->second.pending_request.version.minor << "]..." << endlog; 
             }
             // note that all the string_view will have memeory issue after this call
@@ -342,7 +342,7 @@ void Application::handle_pending_request(ClientInfo & client,int fd){
         client.pending = false;
         lg(LOG_INFO) << "Received POST message from " << fd 
                  << " - Method: " << HTTPRequest::getMethodString(client.pending_request.method)
-                 << " - URL: " << client.pending_request.url
+                 << " - URL: " << client.pending_request.url.full_path()
                  << " - Data size: " << (client.pending_request.data ? client.pending_request.data->size() : 0)
                  << " bytes" << endlog;
         response.data->clear();

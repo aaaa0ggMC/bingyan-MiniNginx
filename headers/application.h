@@ -17,6 +17,7 @@
 #include <epoll.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
+#include <functional>
 
 // Since my library is verbose,so here I globally use the namespace
 using namespace alib::g3;
@@ -34,6 +35,11 @@ namespace mnginx{
         }
     };
 
+    enum class HandleResult{
+        Continue,
+        Close
+    };
+
     class Application{
     private:
         //// Log System
@@ -49,6 +55,7 @@ namespace mnginx{
         EPoll epoll;
 
         std::pmr::unordered_map<int,ClientInfo> establishedClients; 
+        std::pmr::unordered_map<std::pmr::string,std::function<HandleResult(HTTPRequest &,HTTPResponse)>> handlers;
     public:
         int return_result;
 
