@@ -8,6 +8,7 @@ set(HEADER_DIR "./headers")
 aux_source_directory("./src/alib-g3" ALIB_G3_PARTIAL)
 # MINI_NGINX的主要文件：指的是main.cpp,其他文件一般要打包进文件夹哈哈
 aux_source_directory("./src" MINI_NGINX_MAIN)
+aux_source_directory("./src/tests" MINI_NGINX_TEST)
 
 if(CI_BUILD)
 set(build_dir "${CMAKE_SOURCE_DIR}/CBuild")
@@ -26,6 +27,7 @@ target_compile_options(mini_nginx PUBLIC -std=c++26)
 add_executable(mini_nginx_tests
     ${ALIB_G3_PARTIAL}
     ${MINI_NGINX_MAIN}
+    ${MINI_NGINX_TEST}
 )
 target_include_directories(mini_nginx_tests PUBLIC ${HEADER_DIR})
 target_link_libraries(mini_nginx_tests PRIVATE gtest gtest_main)
