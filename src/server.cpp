@@ -1,7 +1,9 @@
 #include <server.h>
 #include <fcntl.h>
+#include <string.h>
 
 using namespace mnginx;
+using namespace alib::g3;
 
 void Server::setup(){
     int len = sizeof(address);
@@ -326,4 +328,26 @@ size_t Server::send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMod
     resp.checkout_data(mode);
     auto data = resp.generate();
     return send(fd,data.data(),data.size(),0);
+}
+
+void Server::run(){
+    while(true){
+        auto [ok,ev_view] = epoll.wait(4000);
+        if(ok){
+            if(ev_view.size()){
+                lg(LOG_INFO) << "Received events!" << endlog;
+                for(auto & ev : ev_view){
+                    if(ev.data.fd == server_fd){
+                        accept_connections();
+                        continue;
+                    }
+                    handle_client(ev);
+                }
+            }else{ // timeout
+                // lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
+            }
+        }else{
+            lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
+        }
+    }
 }

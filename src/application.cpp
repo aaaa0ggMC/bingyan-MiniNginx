@@ -10,19 +10,16 @@
 
 using namespace mnginx;
 
-Application::Application():logger{LOG_SHOW_HEAD | LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},lg{"MiniNginx",logger}{
-    server_fd = -1;
-}
-
-Application::~Application(){
-    if(server_fd != -1)close(server_fd);
+Application::Application():
+logger{LOG_SHOW_HEAD | LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},
+lg{"MiniNginx",logger}{
+    return_result = 0;
 }
 
 //// Setup Section ////
 void Application::setup(){
     setup_general();
     setup_logger();
-
     setup_handlers();
     setup_servers();
 }
@@ -30,12 +27,12 @@ void Application::setup(){
 void Application::setup_general(){
     // Initialize cpp pmr resource pool,note that I'm not very familiar with it
     // I just know how to use
-    resource = &pool;
-    std::pmr::set_default_resource(resource);
+    std::pmr::set_default_resource(&pool);
 }
 
 void Application::setup_servers(){
-    
+    server = std::make_unique<Server>(lg,lg,handlers);
+    server->setup();
 }
 
 void Application::setup_logger(){
@@ -86,23 +83,5 @@ void Application::setup_handlers(){
 
 //// Main Section ////
 void Application::run(){
-    while(true){
-        auto [ok,ev_view] = epoll.wait(4000);
-        if(ok){
-            if(ev_view.size()){
-                lg(LOG_INFO) << "Received events!" << endlog;
-                for(auto & ev : ev_view){
-                    if(ev.data.fd == server_fd){
-                        accept_connections();
-                        continue;
-                    }
-                    handle_client(ev);
-                }
-            }else{ // timeout
-                // lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
-            }
-        }else{
-            lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
-        }
-    }
+    server->run();
 }

@@ -168,7 +168,7 @@ ParseCode HTTPRequest::parse(std::string_view str){
         int i = 0;
         for(;is_space(value[i]);++i){
             // @todo make this configurable
-            if(i > 8){
+            if(i > 32){
                 return ParseCode::TooManySpaces;
             }
         }

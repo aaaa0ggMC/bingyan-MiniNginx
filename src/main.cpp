@@ -10,6 +10,6 @@ int main(){
     mnginx::Application app;
     app.setup();
     app.run();
-
+    
     return app.return_result;
 }
