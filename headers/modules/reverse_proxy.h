@@ -7,7 +7,19 @@
 #include <epoll.h>
 
 namespace mnginx::modules{
-    struct ReverseClient{};
+    struct ReverseClient{
+        int client_fd;
+
+        inline ReverseClient(){
+            client_fd = -1;
+        }
+
+        inline ~ReverseClient(){
+            if(client_fd != -1)close(client_fd);
+        }
+
+        void setup();
+    };
 
     template<class T> concept HasClientId = requires(T & t){
         {t.client_id} -> std::convertible_to<uint64_t>;

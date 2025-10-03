@@ -57,7 +57,7 @@ namespace mnginx{
         int minor;
 
         /// constructor that builds the default value 1.1
-        inline HTTPVersion():major{1},minor{1}{}
+        inline HTTPVersion(int _major = 1,int _minor = 1):major{_major},minor{_minor}{}
     };
 
     /**
@@ -70,6 +70,8 @@ namespace mnginx{
         std::pmr::string full_path_;
         /// decoded url that discarded args ==> "abc?a=1"->"abc", "anc%3F?a=2"->"anc?"
         std::string_view main_path_;
+        /// used for archive 
+        std::pmr::string raw_path_;
     public:
         /// get the const version of full_path_ in case of accidental changes that destroys main_path_
         inline const std::pmr::string& full_path(){return full_path_;}
@@ -78,6 +80,8 @@ namespace mnginx{
             if(full_path_.empty())return "";
             return main_path_;
         }
+        /// get raw path
+        inline const std::pmr::string& raw_path(){return raw_path_;}
 
         /// @brief parse the raw url to decoded url 
         /// @return currently,it always returns 0

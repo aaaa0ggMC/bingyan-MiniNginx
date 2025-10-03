@@ -15,6 +15,8 @@ int URL::parse_raw_url(std::string_view raw){
     if(pos == std::string_view::npos)pos = -1;
     int64_t original = pos;
 
+    // assign raw path data
+    raw_path_ = raw;
     // parse characters and find the first "?"
     full_path_.clear();
     full_path_.reserve(raw.size()+1);
@@ -165,16 +167,59 @@ ParseCode HTTPRequest::parse(std::string_view str){
     return ParseCode::Success;
 }
 
-/// @todo WIP
 std::pmr::vector<char> HTTPRequest::generate(){
     std::pmr::vector<char> rdata;
-    
-
+    rdata.reserve(2048);
+    generate_to(rdata);
     return rdata;
 }
 
 void HTTPRequest::generate_to(std::pmr::vector<char> & rdata){
+    using data_t = std::pmr::vector<char>;
+    rdata.clear();
+    static auto append_num = [](data_t & vec,int num){
+        if(num < 10){
+            vec.push_back('0' + num);
+        }else if(num < 100){
+            vec.push_back('0' + (num/10) % 10);
+            vec.push_back('0' + num % 10);
+        }else if(num < 1000){
+            vec.push_back('0' + num/100 % 10);
+            vec.push_back('0' + num/10 % 10);
+            vec.push_back('0' + num % 10);
+        }else{
+            std::cout << "Well,you win" << std::endl;
+        }// status code < 1000
+    };
+
+    //// Request Method ////
+    auto method_str = getMethodString(method);
+    rdata.insert(rdata.end(),method_str.begin(),method_str.end());
+    rdata.push_back(' ');
+    //// URL ////
+    rdata.insert(rdata.end(),url.raw_path().begin(),url.raw_path().end());
+    //// HTTP Version ////
+    rdata.insert(rdata.end(),{' ','H','T','T','P','/'});
+    append_num(rdata,version.major);
+    if(version.minor){
+        rdata.push_back('.');
+        append_num(rdata,version.minor);
+    }
+    rdata.insert(rdata.end(),{'\r','\n'});
     
+    //// headers ////
+    for(auto& [k,v] : headers){
+        rdata.insert(rdata.end(),k.begin(),k.end());
+        rdata.insert(rdata.end(),{':',' '});
+        rdata.insert(rdata.end(),v.begin(),v.end());
+        rdata.insert(rdata.end(),{'\r','\n'});
+    }
+    rdata.insert(rdata.end(),{'\r','\n'});
+
+    //// message body ////
+    if(data && (data->size() != 0)){
+        rdata.insert(rdata.end(),data->begin(),data->end());
+    }
 }
 
 HTTPRequest::HTTPMethod HTTPRequest::getMethod(std::string_view str){
@@ -259,7 +304,7 @@ void HTTPResponse::generate_to(std::pmr::vector<char>& rdata) const{
     }
     rdata.insert(rdata.end(),{'\r','\n'});
     
-    if(!!data && data->size() != 0){
+    if(data && data->size() != 0){
         rdata.insert(rdata.end(),data->begin(),data->end());
     }
 }

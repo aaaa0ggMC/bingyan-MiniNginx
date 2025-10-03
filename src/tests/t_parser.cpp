@@ -177,3 +177,170 @@ TEST(URL, MultipleEncodings) {
     EXPECT_EQ(url.parse_raw_url("/%25%32%30test"), 0); // %25=% %32=2 %30=0 → %20=空格
     EXPECT_EQ(url.full_path(), "/%20test");
 }
+
+#include <gtest/gtest.h>
+#include <http_parser.h>
+
+using namespace mnginx;
+
+TEST(HTTPRequestGenerateTest, BasicGETRequest) {
+    HTTPRequest req;
+    req.method = HTTPRequest::HTTPMethod::GET;
+    req.url.parse_raw_url("/api/users/123");
+    req.version = {1, 1};
+    req.headers["Host"] = "example.com";
+    req.headers["User-Agent"] = "MiniNginx-Test";
+    
+    std::pmr::vector<char> buffer;
+    req.generate_to(buffer);
+    
+    std::string result(buffer.begin(), buffer.end());
+    std::cout << "=== Basic GET Request ===" << std::endl;
+    std::cout << result << std::endl;
+    
+    EXPECT_NE(result.find("GET /api/users/123 HTTP/1.1"), std::string::npos);
+    EXPECT_NE(result.find("Host: example.com"), std::string::npos);
+    EXPECT_NE(result.find("User-Agent: MiniNginx-Test"), std::string::npos);
+}
+
+TEST(HTTPRequestGenerateTest, POSTRequestWithBody) {
+    HTTPRequest req;
+    req.method = HTTPRequest::HTTPMethod::POST;
+    req.url.parse_raw_url("/api/users");
+    req.version = {1, 1};
+    req.headers["Host"] = "api.example.com";
+    req.headers["Content-Type"] = "application/json";
+    req.headers["Content-Length"] = "26";
+    
+    std::string json_body = R"({"name":"john","age":30})";
+    req.data = std::pmr::vector<char>(json_body.begin(), json_body.end());
+    
+    std::pmr::vector<char> buffer;
+    req.generate_to(buffer);
+    
+    std::string result(buffer.begin(), buffer.end());
+    std::cout << "=== POST Request with Body ===" << std::endl;
+    std::cout << result << std::endl;
+    
+    EXPECT_NE(result.find("POST /api/users HTTP/1.1"), std::string::npos);
+    EXPECT_NE(result.find("Content-Type: application/json"), std::string::npos);
+    EXPECT_NE(result.find("Content-Length: 26"), std::string::npos);
+    EXPECT_NE(result.find(R"({"name":"john","age":30})"), std::string::npos);
+}
+
+TEST(HTTPRequestGenerateTest, HTTP10Request) {
+    HTTPRequest req;
+    req.method = HTTPRequest::HTTPMethod::GET;
+    req.url.parse_raw_url("/");
+    req.version = {1, 0};
+    req.headers["Host"] = "simple.example.com";
+    
+    std::pmr::vector<char> buffer;
+    req.generate_to(buffer);
+    
+    std::string result(buffer.begin(), buffer.end());
+    std::cout << "=== HTTP/1.0 Request ===" << std::endl;
+    std::cout << result << std::endl;
+    
+    EXPECT_NE(result.find("GET / HTTP/1"), std::string::npos);
+    EXPECT_EQ(result.find("GET / HTTP/1.0"), std::string::npos);
+    EXPECT_NE(result.find("Host: simple.example.com"), std::string::npos);
+}
+
+TEST(HTTPRequestGenerateTest, ComplexURLWithQuery) {
+    HTTPRequest req;
+    req.method = HTTPRequest::HTTPMethod::GET;
+    req.url.parse_raw_url("/search?q=hello+world&page=1&limit=10");
+    req.version = {1, 1};
+    req.headers["Host"] = "search.example.com";
+    req.headers["Accept"] = "application/json";
+    
+    std::pmr::vector<char> buffer;
+    req.generate_to(buffer);
+    
+    std::string result(buffer.begin(), buffer.end());
+    std::cout << "=== Request with Query String ===" << std::endl;
+    std::cout << result << std::endl;
+    
+    EXPECT_NE(result.find("GET /search?q=hello+world&page=1&limit=10 HTTP/1.1"), std::string::npos);
+    EXPECT_NE(result.find("Accept: application/json"), std::string::npos);
+}
+
+TEST(HTTPRequestGenerateTest, MultipleHeaders) {
+    HTTPRequest req;
+    req.method = HTTPRequest::HTTPMethod::GET;
+    req.url.parse_raw_url("/");
+    req.version = {1, 1};
+    req.headers["Host"] = "multi.example.com";
+    req.headers["Accept"] = "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8";
+    req.headers["Accept-Language"] = "en-US,en;q=0.5";
+    req.headers["Accept-Encoding"] = "gzip, deflate, br";
+    req.headers["Connection"] = "keep-alive";
+    
+    std::pmr::vector<char> buffer;
+    req.generate_to(buffer);
+    
+    std::string result(buffer.begin(), buffer.end());
+    std::cout << "=== Request with Multiple Headers ===" << std::endl;
+    std::cout << result << std::endl;
+    
+    EXPECT_NE(result.find("Host: multi.example.com"), std::string::npos);
+    EXPECT_NE(result.find("Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"), std::string::npos);
+    EXPECT_NE(result.find("Accept-Language: en-US,en;q=0.5"), std::string::npos);
+    EXPECT_NE(result.find("Accept-Encoding: gzip, deflate, br"), std::string::npos);
+    EXPECT_NE(result.find("Connection: keep-alive"), std::string::npos);
+}
+
+TEST(HTTPRequestGenerateTest, EmptyBodyRequest) {
+    HTTPRequest req;
+    req.method = HTTPRequest::HTTPMethod::GET;
+    req.url.parse_raw_url("/health");
+    req.version = {1, 1};
+    req.headers["Host"] = "health.example.com";
+    // 明确不设置 data
+    
+    std::pmr::vector<char> buffer;
+    req.generate_to(buffer);
+    
+    std::string result(buffer.begin(), buffer.end());
+    std::cout << "=== Request with Empty Body ===" << std::endl;
+    std::cout << result << std::endl;
+    
+    // 检查是否以 \r\n\r\n 结尾（没有消息体）
+    EXPECT_EQ(result.substr(result.length() - 4), "\r\n\r\n");
+}
+
+TEST(HTTPRequestGenerateTest, PerformanceComparison) {
+    HTTPRequest req;
+    req.method = HTTPRequest::HTTPMethod::GET;
+    req.url.parse_raw_url("/api/test");
+    req.version = {1, 1};
+    req.headers["Host"] = "perf.example.com";
+    req.headers["User-Agent"] = "Performance-Test";
+    
+    // 测试 generate() 方法（有 RVO）
+    auto start1 = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 10000; ++i) {
+        auto data = req.generate();
+    }
+    auto end1 = std::chrono::high_resolution_clock::now();
+    
+    // 测试 generate_to() 方法（零分配）
+    std::pmr::vector<char> buffer;
+    buffer.reserve(2048);
+    auto start2 = std::chrono::high_resolution_clock::now();
+    for (int i = 0; i < 10000; ++i) {
+        req.generate_to(buffer);
+    }
+    auto end2 = std::chrono::high_resolution_clock::now();
+    
+    auto duration1 = std::chrono::duration_cast<std::chrono::microseconds>(end1 - start1);
+    auto duration2 = std::chrono::duration_cast<std::chrono::microseconds>(end2 - start2);
+    
+    std::cout << "=== Performance Comparison ===" << std::endl;
+    std::cout << "generate() with RVO: " << duration1.count() << "μs for 10,000 calls" << std::endl;
+    std::cout << "generate_to() zero-allocation: " << duration2.count() << "μs for 10,000 calls" << std::endl;
+    std::cout << "Performance improvement: " << (double)duration1.count() / duration2.count() << "x" << std::endl;
+    
+    EXPECT_LT(duration2.count(), duration1.count()); // generate_to 应该更快
+}

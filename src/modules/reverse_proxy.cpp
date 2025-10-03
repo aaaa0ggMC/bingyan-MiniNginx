@@ -10,7 +10,8 @@ thread_local ModReverseProxy ModReverseProxy::proxy;
 HandleResult ModReverseProxy::handle(HandlerContext ctx){
     /// just send data to server
     LogFactory & lg = *proxy.lg;
-    ctx.request.generate();
+    
+    lg(LOG_INFO) << "Let me see:[" << ctx.request.generate() << "]" << std::endl;
 
     return HandleResult::Continue;
 }
