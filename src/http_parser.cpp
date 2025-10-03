@@ -1,81 +1,60 @@
 #include <http_parser.h>
 #include <gtest/gtest.h>
 #include <alib-g3/aclock.h>
-// #include <format>
 
 using namespace mnginx;
 
-/// @todo WIP
-ParseCode HTTPResponse::parse(std::string_view data){
-    return ParseCode::Success;
-}
-
-/** perf
- * @before 6593.11ms for 1'000'000 times ==> 6.59311us /call
- * @after(current) 3217.43ms for 1'000'000  times ==> 3.21743us /call
- */
-std::pmr::vector<char> HTTPResponse::generate(TransferMode mode) const{
-    using data_t = std::pmr::vector<char>;
-    data_t rdata;
-    rdata.reserve(2048);
-
-    // used for small numbers,or frankly speaking,for HTTP Version code
-    static auto append_num = [](data_t & vec,int num){
-        if(num < 10){
-            vec.push_back('0' + num);
-        }else if(num < 100){
-            vec.push_back('0' + (num/10) % 10);
-            vec.push_back('0' + num % 10);
-        }else if(num < 1000){
-            vec.push_back('0' + num/100 % 10);
-            vec.push_back('0' + num/10 % 10);
-            vec.push_back('0' + num % 10);
-        }else{
-            std::cout << "Well,you win" << std::endl;
-        }// status code < 1000
+//// URL ////
+int URL::parse_raw_url(std::string_view raw){
+    static auto acceptable = [](long ch){
+        if(ch == 0x09 || ch == 0x0A || ch == 0x0D)return true;
+        else if(ch <= 0x1F || ch == 0x7F || ch > 0xFF)return false;
+        else return true;
     };
+    int64_t pos = (int64_t)raw.find_first_of("?");
+    if(pos == std::string_view::npos)pos = -1;
+    int64_t original = pos;
 
-    rdata.insert(rdata.end(),{'H','T','T','P','/'});
-    append_num(rdata,version.major);
-    if(version.minor){
-        rdata.push_back('.');
-        append_num(rdata,version.major);
-    }
-    rdata.push_back(' ');
-    append_num(rdata,static_cast<int32_t>(status_code));
-    rdata.push_back(' ');
-    rdata.insert(rdata.end(),status_str.begin(),status_str.end());
-    rdata.insert(rdata.end(),{'\r','\n'});
+    // parse characters and find the first "?"
+    full_path_.clear();
+    full_path_.reserve(raw.size()+1);
+    for(size_t i = 0;i < raw.size();++i){
+        if(raw[i] == '%'){
+            if((int)raw.size()-(int)i < 2)break;
+            else{
+                char ch[3] = {0};
+                char * endptr;
+                ch[0] = raw[++i];
+                ch[1] = raw[++i];
 
-    for(auto&[key,val] : headers){
-        rdata.insert(rdata.end(),key.begin(),key.end());
-        rdata.insert(rdata.end(),{':',' '});
-        rdata.insert(rdata.end(),val.begin(),val.end());
-        rdata.insert(rdata.end(),{'\r','\n'});
+                long result = strtol(ch,&endptr,16);
+                if(!acceptable(result) || endptr != &(ch[2])){
+                    // 3 ch is not added
+                    if(i <= original)pos -= (endptr - ch) - 1;
+                    i -= (&(ch[2]) - endptr);
+                    continue;
+                } // which means this is an invalid number
+                full_path_.push_back((char)result);
+                // 2ch is not added
+                if(i <= original)pos -= 2;
+            }
+        }else if(raw[i] == '+')full_path_.push_back(' ');
+        else full_path_.push_back(raw[i]);
     }
-    rdata.insert(rdata.end(),{'\r','\n'});
-    
-    if(!!data && data->size() != 0){
-        rdata.insert(rdata.end(),data->begin(),data->end());
-    }
-    return rdata;
+
+    // generate main view
+    // test if(pos >= 0)std::cout << "Charch:" <<  full_path_[pos] << std::endl;
+    if(pos >= 0)main_path_ = std::string_view(full_path_.begin(),full_path_.begin() + pos);
+    else main_path_ = std::string_view(full_path_.begin(),full_path_.end());
+    return 0;
 }
 
-void HTTPResponse::checkout_data(TransferMode mode){
-    switch(mode){
-    case TransferMode::ContentLength:
-        // @todo use performant solutions to cast int to string
-        headers[KEY_Content_Length] = std::to_string((data)?data->size():0);
-        break;
-    case TransferMode::Chunked:
-        // @todo not supported now
-        std::cerr << "Chunked mode is not supported!" << std::endl;
-        break;
-    default:
-        break;
-    }
+std::pmr::unordered_map<std::pmr::string,std::pmr::string> URL::get_args(){
+    // @todo WIP
+    return {};
 }
 
+//// HTTPRequest ////
 // 请求的网页可能带非法字符比如空格，因此有%20的转换！(I've done this)
 /* perf: 2028.07ms for 1'000'000 calls   ==> 2.02807us / call*/
 ParseCode HTTPRequest::parse(std::string_view str){
@@ -192,7 +171,6 @@ std::pmr::vector<char> HTTPRequest::generate(){
     return rdata;
 }
 
-
 HTTPRequest::HTTPMethod HTTPRequest::getMethod(std::string_view str){
     using M = HTTPRequest::HTTPMethod;
     int str_size = str.size();
@@ -217,55 +195,76 @@ std::string_view HTTPRequest::getMethodString(HTTPRequest::HTTPMethod method){
     }
 }
 
-//// URL ////
-int URL::parse_raw_url(std::string_view raw){
-    static auto acceptable = [](long ch){
-        if(ch == 0x09 || ch == 0x0A || ch == 0x0D)return true;
-        else if(ch <= 0x1F || ch == 0x7F || ch > 0xFF)return false;
-        else return true;
-    };
-    int64_t pos = (int64_t)raw.find_first_of("?");
-    if(pos == std::string_view::npos)pos = -1;
-    int64_t original = pos;
-
-    // parse characters and find the first "?"
-    full_path_.clear();
-    full_path_.reserve(raw.size()+1);
-    for(size_t i = 0;i < raw.size();++i){
-        if(raw[i] == '%'){
-            if((int)raw.size()-(int)i < 2)break;
-            else{
-                char ch[3] = {0};
-                char * endptr;
-                ch[0] = raw[++i];
-                ch[1] = raw[++i];
-
-                long result = strtol(ch,&endptr,16);
-                if(!acceptable(result) || endptr != &(ch[2])){
-                    // 3 ch is not added
-                    if(i <= original)pos -= (endptr - ch) - 1;
-                    i -= (&(ch[2]) - endptr);
-                    continue;
-                } // which means this is an invalid number
-                full_path_.push_back((char)result);
-                // 2ch is not added
-                if(i <= original)pos -= 2;
-            }
-        }else if(raw[i] == '+')full_path_.push_back(' ');
-        else full_path_.push_back(raw[i]);
-    }
-
-    // generate main view
-    // test if(pos >= 0)std::cout << "Charch:" <<  full_path_[pos] << std::endl;
-    if(pos >= 0)main_path_ = std::string_view(full_path_.begin(),full_path_.begin() + pos);
-    else main_path_ = std::string_view(full_path_.begin(),full_path_.end());
-
-    return 0;
+//// HTTP Response ////
+/// @todo WIP
+ParseCode HTTPResponse::parse(std::string_view data){
+    return ParseCode::Success;
 }
 
-std::pmr::unordered_map<std::pmr::string,std::pmr::string> URL::get_args(){
-    // @todo WIP
-    return {};
+/** perf
+ * @before 6593.11ms for 1'000'000 times ==> 6.59311us /call
+ * @after(current) 3217.43ms for 1'000'000  times ==> 3.21743us /call
+ */
+std::pmr::vector<char> HTTPResponse::generate(TransferMode mode) const{
+    using data_t = std::pmr::vector<char>;
+    data_t rdata;
+    rdata.reserve(2048);
+
+    // used for small numbers,or frankly speaking,for HTTP Version code
+    static auto append_num = [](data_t & vec,int num){
+        if(num < 10){
+            vec.push_back('0' + num);
+        }else if(num < 100){
+            vec.push_back('0' + (num/10) % 10);
+            vec.push_back('0' + num % 10);
+        }else if(num < 1000){
+            vec.push_back('0' + num/100 % 10);
+            vec.push_back('0' + num/10 % 10);
+            vec.push_back('0' + num % 10);
+        }else{
+            std::cout << "Well,you win" << std::endl;
+        }// status code < 1000
+    };
+
+    rdata.insert(rdata.end(),{'H','T','T','P','/'});
+    append_num(rdata,version.major);
+    if(version.minor){
+        rdata.push_back('.');
+        append_num(rdata,version.major);
+    }
+    rdata.push_back(' ');
+    append_num(rdata,static_cast<int32_t>(status_code));
+    rdata.push_back(' ');
+    rdata.insert(rdata.end(),status_str.begin(),status_str.end());
+    rdata.insert(rdata.end(),{'\r','\n'});
+
+    for(auto&[key,val] : headers){
+        rdata.insert(rdata.end(),key.begin(),key.end());
+        rdata.insert(rdata.end(),{':',' '});
+        rdata.insert(rdata.end(),val.begin(),val.end());
+        rdata.insert(rdata.end(),{'\r','\n'});
+    }
+    rdata.insert(rdata.end(),{'\r','\n'});
+    
+    if(!!data && data->size() != 0){
+        rdata.insert(rdata.end(),data->begin(),data->end());
+    }
+    return rdata;
+}
+
+void HTTPResponse::checkout_data(TransferMode mode){
+    switch(mode){
+    case TransferMode::ContentLength:
+        // @todo use performant solutions to cast int to string
+        headers[KEY_Content_Length] = std::to_string((data)?data->size():0);
+        break;
+    case TransferMode::Chunked:
+        // @todo not supported now
+        std::cerr << "Chunked mode is not supported!" << std::endl;
+        break;
+    default:
+        break;
+    }
 }
 
 void HTTPResponse::reset(){

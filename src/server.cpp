@@ -46,6 +46,28 @@ void Server::setup(){
     /// all set,now let's wait for client in the run function 
 }
 
+void Server::run(){
+    while(true){
+        auto [ok,ev_view] = epoll.wait(4000);
+        if(ok){
+            if(ev_view.size()){
+                lg(LOG_INFO) << "Received events!" << endlog;
+                for(auto & ev : ev_view){
+                    if(ev.data.fd == server_fd){
+                        accept_connections();
+                        continue;
+                    }
+                    handle_client(ev);
+                }
+            }else{ // timeout
+                // lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
+            }
+        }else{
+            lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
+        }
+    }
+}
+
 void Server::accept_connections(){
     int client_fd = -1;
     struct sockaddr_in client_info;
@@ -328,26 +350,4 @@ size_t Server::send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMod
     resp.checkout_data(mode);
     auto data = resp.generate();
     return send(fd,data.data(),data.size(),0);
-}
-
-void Server::run(){
-    while(true){
-        auto [ok,ev_view] = epoll.wait(4000);
-        if(ok){
-            if(ev_view.size()){
-                lg(LOG_INFO) << "Received events!" << endlog;
-                for(auto & ev : ev_view){
-                    if(ev.data.fd == server_fd){
-                        accept_connections();
-                        continue;
-                    }
-                    handle_client(ev);
-                }
-            }else{ // timeout
-                // lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
-            }
-        }else{
-            lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
-        }
-    }
 }

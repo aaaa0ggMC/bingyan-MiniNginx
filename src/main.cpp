@@ -6,7 +6,6 @@ int main(){
     testing::InitGoogleTest();
     return RUN_ALL_TESTS();
 #endif
-
     mnginx::Application app;
     app.setup();
     app.run();

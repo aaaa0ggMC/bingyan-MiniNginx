@@ -24,20 +24,15 @@ void Application::setup(){
     setup_servers();
 }
 
+void Application::setup_logger(){
+    logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest.log",4 * 1024 * 1024));
+    logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
+}
+
 void Application::setup_general(){
     // Initialize cpp pmr resource pool,note that I'm not very familiar with it
     // I just know how to use
     std::pmr::set_default_resource(&pool);
-}
-
-void Application::setup_servers(){
-    server = std::make_unique<Server>(lg,lg,handlers);
-    server->setup();
-}
-
-void Application::setup_logger(){
-    logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest.log",4 * 1024 * 1024));
-    logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
 }
 
 void Application::setup_handlers(){
@@ -79,6 +74,11 @@ void Application::setup_handlers(){
         
         return HandleResult::Continue;
     });
+}
+
+void Application::setup_servers(){
+    server = std::make_unique<Server>(lg,lg,handlers);
+    server->setup();
 }
 
 //// Main Section ////
