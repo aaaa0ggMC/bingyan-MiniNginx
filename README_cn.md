@@ -14,6 +14,7 @@
 - [MiniNginx](#mininginx)
   - [目录](#目录)
   - [这是什么](#这是什么)
+  - [文档](#文档)
   - [依赖](#依赖)
   - [构建](#构建)
     - [第一步：克隆我的仓库](#第一步克隆我的仓库)
@@ -23,6 +24,9 @@
 
 ## 这是什么
 一个极简的ngnix服务器。
+
+## 文档
+[Mingnix文档](https://aaaa0ggmc.github.io/bingyan-MiniNginx/MiniNginx/)
 
 ## 依赖
 - C++ (GCC 或者 Clang 或者随便)

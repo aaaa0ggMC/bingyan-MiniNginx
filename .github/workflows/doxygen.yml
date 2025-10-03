@@ -1,4 +1,4 @@
-name: Deploy to ULDoc
+name: Deploy to MiniNgnix
 
 on:
   push:

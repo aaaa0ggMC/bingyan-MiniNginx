@@ -15,6 +15,7 @@ English / [简体中文](./README_cn.md)
   - [Table of Contents](#table-of-contents)
   - [What is it](#what-is-it)
   - [Dependencies](#dependencies)
+  - [Docs](#docs)
   - [Building](#building)
     - [Step1: clone this repo](#step1-clone-this-repo)
     - [Step2: run scripts](#step2-run-scripts)
@@ -28,6 +29,9 @@ It's a simple ngnix sever.
 - C++ (GCC or Clang or what ever)
   - The compiler you choose must support -std=c++26
 - Google Test
+
+## Docs
+see [MiniNgnix doc](https://aaaa0ggmc.github.io/bingyan-MiniNginx/MiniNginx/)
 
 ## Building
 ### Step1: clone this repo
