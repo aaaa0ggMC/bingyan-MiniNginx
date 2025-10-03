@@ -79,6 +79,9 @@
         "streambuf": "cpp",
         "__node_handle": "cpp",
         "random": "cpp",
-        "core": "cpp"
+        "core": "cpp",
+        "coroutine": "cpp",
+        "print": "cpp",
+        "*.def": "cpp"
     }
 }

@@ -16,6 +16,7 @@
 #include <vector>
 #include <optional>
 #include <memory_resource>
+#include <cstring>
 
 namespace mnginx{
     //// Some abbr. types
@@ -26,6 +27,8 @@ namespace mnginx{
     constexpr const char * KEY_Transfer_Encoding = "Transfer-Encoding";
     /// The content length of the message body
     constexpr const char * KEY_Content_Length = "Content-Length";
+    /// For track reason
+    constexpr const size_t KEY_Len_Content_Length = std::strlen(KEY_Content_Length);
 
     /// type of the return of HTTPRequest/HTTPResponse::parse
     enum class ParseCode : int32_t{

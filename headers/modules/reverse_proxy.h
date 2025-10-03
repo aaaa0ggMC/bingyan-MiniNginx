@@ -5,20 +5,34 @@
 #include <client.h>
 #include <alib-g3/alogger.h>
 #include <epoll.h>
+#include <arpa/inet.h>
+#include <iostream>
 
 namespace mnginx::modules{
     struct ReverseClient{
         int client_fd;
+        struct sockaddr_in server_addr;
+        std::pmr::vector<char> buffer;
+        bool connected;
+        int reverse_fd;
 
-        inline ReverseClient(){
+        inline ReverseClient(int fd){
             client_fd = -1;
+            connected = false;
+            reverse_fd = fd;
         }
 
         inline ~ReverseClient(){
             if(client_fd != -1)close(client_fd);
         }
 
-        void setup();
+        int setup();
+    
+        int connect_server();
+
+        void send_data(const std::pmr::vector<char> & data);
+
+        int reverse_proxy();
     };
 
     template<class T> concept HasClientId = requires(T & t){
@@ -42,7 +56,10 @@ namespace mnginx::modules{
         }
 
         inline static void module_timer(double elap_ms){
-            
+            proxy.clear_unused_connections();
+            for(auto & [k,v] : proxy.clients){
+                v.reverse_proxy();
+            }
         }
 
         inline ModReverseProxy(){
@@ -53,9 +70,16 @@ namespace mnginx::modules{
         inline void clear_unused_connections(){
             if(!server_clients)return;
             auto cl = server_clients;
-            std::erase_if(clients,[cl](const auto & item){
+            std::vector<uint64_t> ids;
+            ids.reserve(server_clients->size());
+            for(auto & [_,ci] : *cl){
+                ids.push_back(ci.client_id);
+            }
+            std::erase_if(clients,[ids](const auto & item){
                 auto & [k,_] = item;
-                return (cl->find(k) == cl->end());
+                bool val = std::find(ids.begin(),ids.end(),k) == ids.end();
+                if(val)std::cout << "Removed unused." << std::endl;
+                return val;
             });
         }
 

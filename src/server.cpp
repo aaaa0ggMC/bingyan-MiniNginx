@@ -264,7 +264,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
             while(true){
                 std::string_view buffer (client.buffer.begin(),client.buffer.end());
                 char * endptr = nullptr;
-                size_t pos = buffer.find_first_of("\r\n");
+                size_t pos = buffer.find("\r\n");
                 if(pos == std::string_view::npos)return; // data is not well prepared
                 int count = strtol(buffer.data(),&endptr,16); // @note the chunked data is a hex number
                 if(endptr == buffer.data()){ // invalid character

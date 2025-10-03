@@ -95,7 +95,7 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,
         bool find_ok = false;
         bool no_child = true;
 
-        pos = main_path.find_first_of('/');
+        pos = main_path.find("/");
         if(pos != std::string_view::npos){
             name = std::string_view(main_path.begin(),main_path.begin() + pos);
         }else{

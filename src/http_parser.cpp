@@ -11,7 +11,7 @@ int URL::parse_raw_url(std::string_view raw){
         else if(ch <= 0x1F || ch == 0x7F || ch > 0xFF)return false;
         else return true;
     };
-    int64_t pos = (int64_t)raw.find_first_of("?");
+    int64_t pos = (int64_t)raw.find("?");
     if(pos == std::string_view::npos)pos = -1;
     int64_t original = pos;
 
@@ -60,7 +60,7 @@ std::pmr::unordered_map<std::pmr::string,std::pmr::string> URL::get_args(){
 // 请求的网页可能带非法字符比如空格，因此有%20的转换！(I've done this)
 /* perf: 2028.07ms for 1'000'000 calls   ==> 2.02807us / call*/
 ParseCode HTTPRequest::parse(std::string_view str){
-    auto pos = str.find_first_of(' ');
+    auto pos = str.find(' ');
     auto oldpos = 0;
     //// Extract Method
     if(pos == std::string_view::npos)return ParseCode::InvalidFormat;
@@ -71,7 +71,7 @@ ParseCode HTTPRequest::parse(std::string_view str){
 
     //// Extract URL
     oldpos = pos + 1;
-    pos = str.substr(oldpos).find_first_of(' ') + oldpos;
+    pos = str.substr(oldpos).find(' ') + oldpos;
     if(pos == std::string_view::npos)return ParseCode::InvalidFormat;
     auto str_part = str.substr(oldpos,pos - oldpos);
     if(url.parse_raw_url(str_part) != 0){
@@ -125,7 +125,7 @@ ParseCode HTTPRequest::parse(std::string_view str){
         pos += 2; //skip \r\n to next line
         oldpos = pos;
         // actually,here we call pos-->count
-        pos = str.substr(oldpos).find_first_of("\r\n");
+        pos = str.substr(oldpos).find("\r\n");
         if(pos == std::string_view::npos)return ParseCode::InvalidFormat; // So,there's no ending
         else if(pos == 0) {
             pos = oldpos; // keep the right value
@@ -136,7 +136,7 @@ ParseCode HTTPRequest::parse(std::string_view str){
         std::string_view full_line = str.substr(oldpos,pos);
         pos += oldpos;
         if(is_space(full_line[0]))return ParseCode::SpaceInTheFrontOfHeader; // "  Data: Host" is forbidden
-        auto colon_pos = full_line.find_first_of(":");
+        auto colon_pos = full_line.find(":");
         if(colon_pos == std::string_view::npos) return ParseCode::InvalidFormat; // "      \r\n" is forbidden
         std::string_view key = full_line.substr(0,colon_pos),
                         value = full_line.substr(colon_pos+1);
