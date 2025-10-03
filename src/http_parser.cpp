@@ -173,6 +173,10 @@ std::pmr::vector<char> HTTPRequest::generate(){
     return rdata;
 }
 
+void HTTPRequest::generate_to(std::pmr::vector<char> & rdata){
+    
+}
+
 HTTPRequest::HTTPMethod HTTPRequest::getMethod(std::string_view str){
     using M = HTTPRequest::HTTPMethod;
     int str_size = str.size();
@@ -207,11 +211,18 @@ ParseCode HTTPResponse::parse(std::string_view data){
  * @before 6593.11ms for 1'000'000 times ==> 6.59311us /call
  * @after(current) 3217.43ms for 1'000'000  times ==> 3.21743us /call
  */
-std::pmr::vector<char> HTTPResponse::generate(TransferMode mode) const{
+std::pmr::vector<char> HTTPResponse::generate() const{
     using data_t = std::pmr::vector<char>;
     data_t rdata;
     rdata.reserve(2048);
+    generate_to(rdata);
+    return rdata;
+}
 
+void HTTPResponse::generate_to(std::pmr::vector<char>& rdata) const{
+    using data_t = std::pmr::vector<char>;
+    
+    rdata.clear();
     // used for small numbers,or frankly speaking,for HTTP Version code
     static auto append_num = [](data_t & vec,int num){
         if(num < 10){
@@ -251,7 +262,6 @@ std::pmr::vector<char> HTTPResponse::generate(TransferMode mode) const{
     if(!!data && data->size() != 0){
         rdata.insert(rdata.end(),data->begin(),data->end());
     }
-    return rdata;
 }
 
 void HTTPResponse::checkout_data(TransferMode mode){

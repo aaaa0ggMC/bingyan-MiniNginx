@@ -46,14 +46,23 @@ namespace mnginx{
         std::pmr::vector<std::pmr::string>& vals; ///< path vals
         HTTPResponse& response; ///< output
         ClientInfo & client; ///< something about the client
+        /// map id to the index in val,string_view refers to data stored in StateTree,so it's safe usually
+        std::pmr::unordered_map<std::string_view,int>& mapper; 
+
+        inline std::optional<std::string_view> get_param(std::string_view id){
+            auto it = mapper.find(id);
+            if(it == mapper.end() || it->second >= vals.size())return std::nullopt;
+            return vals[it->second];
+        }
 
         inline HandlerContext(
             int fd,
             HTTPRequest& rq,
             std::pmr::vector<std::pmr::string>& nv,
             HTTPResponse& rp,
-            ClientInfo & cl
-        ):fd{fd},request{rq},vals{nv},response{rp},client{cl}{}
+            ClientInfo & cl,
+            std::pmr::unordered_map<std::string_view,int>& _mapper
+        ):fd{fd},request{rq},vals{nv},response{rp},client{cl},mapper{_mapper}{}
     };
 
     /// function type to handle routes
@@ -73,12 +82,15 @@ namespace mnginx{
         std::pmr::string data_str;
         /// to check whether the chain reached to the end
         bool empty;
+        /// id of the node
+        std::pmr::string id;
 
         /// constructor,initializes StateNode with default value
         /// @note if a node has empty data_str but rule is FixedString,add_new_handler will return EmptyNodeName 
         inline StateNode(){
             empty = true;
             data_str = "";
+            id = "";
             rule = HandlerRule::FixedString;
         }
 
@@ -88,9 +100,11 @@ namespace mnginx{
          * @return StateNode& 
          * @start-date 2025/10/03
          */
-        inline StateNode& node(std::string_view data){
+        inline StateNode& node(std::string_view data,std::string_view i_id = ""){
             data_str.clear();
             data_str.insert(data_str.end(),data.begin(),data.end());
+            id.clear();
+            id.insert(id.end(),i_id.begin(),i_id.end());
             empty = false;
             next = std::make_unique<StateNode>();
             return *next;
@@ -103,8 +117,10 @@ namespace mnginx{
          * @return StateNode& 
          * @start-date 2025/10/02
          */
-        inline StateNode& node(HandlerRule ru){
+        inline StateNode& node(HandlerRule ru,std::string_view i_id = ""){
             data_str.clear();
+            id.clear();
+            id.insert(id.end(),i_id.begin(),i_id.end());
             rule = ru; // when rule is Match_Any,data means the id of the context,leave empty to discard the param
             empty = false;
             next = std::make_unique<StateNode>();
@@ -150,6 +166,8 @@ namespace mnginx{
             std::pmr::string data_str;
             /// handler of current node
             HandlerFn handler;
+            /// id
+            std::pmr::string id;
 
             /// child nodes
             std::pmr::vector<Node> nexts;
@@ -182,7 +200,9 @@ namespace mnginx{
          * @return ParseResult 
          * @start-date 2025/10/03
          */
-        ParseResult parseURL(std::string_view main_path,HandlerFn & fn,std::pmr::vector<std::pmr::string> & node_vals);
+        ParseResult parseURL(std::string_view main_path,
+            HandlerFn & fn,std::pmr::vector<std::pmr::string> & node_vals,
+            std::pmr::unordered_map<std::string_view,int> & mapper);
 
         /// construct the tree with root whose value is "/" and rule is FixedString
         /// (PS.if you changed it,nothing will changed,the data except nexts of root wont be used)

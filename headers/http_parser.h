@@ -137,6 +137,12 @@ namespace mnginx{
         std::pmr::vector<char> generate();
 
         /**
+         * @brief (WIP,NotImplemented) generate a HTTP Request According to the data
+         * @start-date 2025/10/02
+         */
+        void generate_to(std::pmr::vector<char> & cont);
+
+        /**
          * @brief Get the Method object
          * @param str 
          * @return HTTPMethod 
@@ -207,7 +213,13 @@ namespace mnginx{
          * @return std::pmr::vector<char> data
          * @start-date 2025/10/02
          */
-        std::pmr::vector<char> generate(TransferMode = TransferMode::ContentLength) const; 
+        std::pmr::vector<char> generate() const; 
+
+        /**
+         * @brief generate data to the be sent to client
+         * @start-date 2025/10/02
+         */
+        void generate_to(std::pmr::vector<char>& cont) const; 
 
         /**
          * @brief reset members to default value

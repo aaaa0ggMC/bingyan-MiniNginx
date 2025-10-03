@@ -320,10 +320,11 @@ TEST(StateTreeParseTest, WildcardPathParsing) {
     // 测试路径解析
     HandlerFn found_handler;
     std::pmr::vector<std::pmr::string> node_vals;
+    std::pmr::unordered_map<std::string_view,int> mapper;
     
     // 测试用例1: /api/hello/say
     std::cout << "\n=== Testing /api/hello/say ===" << std::endl;
-    auto result1 = state_tree.parseURL("/api/hello/say", found_handler, node_vals);
+    auto result1 = state_tree.parseURL("/api/hello/say", found_handler, node_vals,mapper);
     
     std::cout << "Parse result: " << static_cast<int>(result1) << std::endl;
     std::cout << "Node values captured: ";
@@ -335,7 +336,7 @@ TEST(StateTreeParseTest, WildcardPathParsing) {
     
     // 测试用例2: /api/world/say  
     std::cout << "\n=== Testing /api/world/say ===" << std::endl;
-    auto result2 = state_tree.parseURL("/api/world/say", found_handler, node_vals);
+    auto result2 = state_tree.parseURL("/api/world/say", found_handler, node_vals,mapper);
     
     std::cout << "Parse result: " << static_cast<int>(result2) << std::endl;
     std::cout << "Node values captured: ";
@@ -350,7 +351,8 @@ TEST(StateTreeParseTest, WildcardPathParsing) {
         HTTPRequest dummy_req;
         HTTPResponse dummy_res;
         ClientInfo dummy_client;
-        HandlerContext ctx{0, dummy_req, node_vals, dummy_res, dummy_client};
+        std::pmr::unordered_map<std::string_view,int> mapper;
+        HandlerContext ctx{0, dummy_req, node_vals, dummy_res, dummy_client,mapper};
         auto handle_result = found_handler(ctx);
         std::cout << "Handler returned: " << static_cast<int>(handle_result) << std::endl;
     }
@@ -450,8 +452,9 @@ TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
         
         HandlerFn found_handler;
         std::pmr::vector<std::pmr::string> node_vals;
+        std::pmr::unordered_map<std::string_view,int> mapper;
         
-        auto result = tree->parseURL(url, found_handler, node_vals);
+        auto result = tree->parseURL(url, found_handler, node_vals,mapper);
         
         std::cout << "Parse result: " << static_cast<int>(result) << std::endl;
         std::cout << "Path segments: ";
@@ -464,7 +467,8 @@ TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
             HTTPRequest dummy_req;
             HTTPResponse dummy_res;
             ClientInfo dummy_client;
-            HandlerContext ctx{0, dummy_req, node_vals, dummy_res, dummy_client};
+            std::pmr::unordered_map<std::string_view,int> mapper;
+            HandlerContext ctx{0, dummy_req, node_vals, dummy_res, dummy_client,mapper};
             auto handle_result = found_handler(ctx);
             std::cout << "Handler execution result: " << static_cast<int>(handle_result) << std::endl;
         } else {
@@ -500,4 +504,43 @@ TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
     
     std::cout << "\nStatic Tree:" << std::endl;
     print_node(static_tree.root, 1);
+}
+
+TEST(StateTreeParseTest, NamedParameterMapping) {
+    StateTree tree;
+    
+    StateNode route;
+    route.node("api")
+        .node("users")
+        .node(HandlerRule::Match_Any,"user_id")
+        .node("posts")
+        .node(HandlerRule::Match_Any,"post_id");
+    
+    auto handler = [](HandlerContext ctx) {
+        auto user_id = ctx.get_param("user_id");
+        auto post_id = ctx.get_param("post_id");
+        EXPECT_TRUE(user_id.has_value());
+        EXPECT_TRUE(post_id.has_value());
+        EXPECT_EQ(*user_id, "123");
+        EXPECT_EQ(*post_id, "456");
+        return HandleResult::Continue;
+    };
+    
+    tree.add_new_handler(route, handler);
+    
+    HandlerFn found;
+    std::pmr::vector<std::pmr::string> vals;
+    std::pmr::unordered_map<std::string_view, int> mapper;
+    
+    auto result = tree.parseURL("/api/users/123/posts/456", found, vals, mapper);
+    EXPECT_EQ(result, StateTree::ParseResult::OK);
+    
+    std::cout << "What In Mapper" << std::endl;
+    for(auto& [k,v] : mapper){
+        std::cout << "[" << k << "][" << v << "]" << std::endl;
+    }
+
+    // 验证映射
+    EXPECT_EQ(mapper.at("user_id"), 2);  // vals[2] = "123"
+    EXPECT_EQ(mapper.at("post_id"), 4);  // vals[4] = "456"
 }

@@ -54,6 +54,7 @@ StateTree::AddResult StateTree::add_new_handler(const StateNode& tree,HandlerFn 
             Node node;
             node.data_str = (pnode->rule == HandlerRule::Match_Any)?"":pnode->data_str;
             node.rule = pnode->rule;
+            node.id = pnode->id;
             if(pnode->empty){
                 node.handler = handler;
                 current->nexts.push_back(node);
@@ -76,13 +77,17 @@ void StateTree::clear_tree(){
     root.data_str = "/";
 }
 
-StateTree::ParseResult StateTree::parseURL(std::string_view main_path,HandlerFn & fn,std::pmr::vector<std::pmr::string> & node_vals){
+StateTree::ParseResult StateTree::parseURL(std::string_view main_path,
+    HandlerFn & fn,
+    std::pmr::vector<std::pmr::string> & node_vals,
+    std::pmr::unordered_map<std::string_view,int> & mapper){
     if(main_path.size() < 1)return ParseResult::EmptyURL;
     if(main_path[0] == '/')main_path = main_path.substr(1); // we leave space for path with no '/' prefix
     Node * current = &root;
     size_t pos = 0;
 
     node_vals.clear();
+    mapper.clear();
 
     while(true){
         std::string_view name = "";
@@ -107,11 +112,14 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,HandlerFn 
                 if(n.nexts.size() == 0){
                     if(n.handler){
                         fn = n.handler;
+                        if(!n.id.empty())mapper.emplace(n.id,node_vals.size());
                         return ParseResult::OK;
                     }else{
                         return ParseResult::Node404;
                     }
                 }
+                // node_vals will enlarge later
+                if(!n.id.empty())mapper.emplace(n.id,node_vals.size());
                 current = &n;
                 find_ok = true;
             }
@@ -120,6 +128,7 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,HandlerFn 
         if(!find_ok){
             if(match_any){
                 current = match_any;
+                if(!match_any->id.empty())mapper.emplace(match_any->id,node_vals.size());
             }else if(no_child && current->nexts.size() == 1){ // that means we stepped into the end
                 if(current->nexts[0].handler){
                     fn = current->nexts[0].handler;

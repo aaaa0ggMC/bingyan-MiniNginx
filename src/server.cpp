@@ -324,11 +324,16 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
 
     if(pass_to_handler){
         HandlerFn fn;
-        std::pmr::vector<std::pmr::string> vals;
-        auto result = handlers.parseURL(client.pending_request.url.main_path(),fn,vals);
+        static thread_local std::pmr::vector<std::pmr::string> vals;
+        static thread_local std::pmr::unordered_map<std::string_view,int> mapper;
+
+        vals.clear();
+        mapper.clear();
+
+        auto result = handlers.parseURL(client.pending_request.url.main_path(),fn,vals,mapper);
         if(result == StateTree::ParseResult::OK){
             response.reset();
-            auto result = fn(HandlerContext(fd,client.pending_request,vals,response,client));
+            auto result = fn(HandlerContext(fd,client.pending_request,vals,response,client,mapper));
             if(result == HandleResult::Close){
                 cleanup_connection(fd);
             }else if(result != HandleResult::AlreadySend)send_message(fd,response);
@@ -354,7 +359,8 @@ size_t Server::send_message_simp(int fd,HTTPResponse::StatusCode code,std::strin
 
 size_t Server::send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMode mode){
     // auto checkout
+    static thread_local std::pmr::vector<char> data;
     resp.checkout_data(mode);
-    auto data = resp.generate();
+    resp.generate_to(data);
     return send(fd,data.data(),data.size(),0);
 }
