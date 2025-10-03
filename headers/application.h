@@ -14,6 +14,7 @@
 #include <alib-g3/alogger.h>
 #include <http_parser.h>
 #include <route_states.h>
+#include <modules/module_base.h>
 #include <client.h>
 #include <server.h>
 #include <epoll.h>
@@ -22,6 +23,11 @@
 using namespace alib::g3;
 
 namespace mnginx{
+    template<typename T>
+    concept HasModuleHandler = requires(T mod,HandlerContext ctx) {
+        { T::handle(ctx) } -> std::same_as<HandleResult>;
+    };
+
     /**
      * @brief The main entry of MiniNginx
      * @start-date 2025/10/02
@@ -45,7 +51,10 @@ namespace mnginx{
          * @brief a tree state machine that analysis the url and call related handlers,
          * it's fragile so make sure your registration is nice
          */
-        StateTree handlers; 
+        StateTree handlers;
+
+        /// modules
+        modules::ModuleFuncs mods;
     public:
         /// used in main() to return,initially 0
         int return_result; 
@@ -65,6 +74,8 @@ namespace mnginx{
         void setup_general();
         /// Initialize the output target of the logger
         void setup_logger();
+        /// Initialize modules,which is handler + thread local data
+        void setup_modules();
         /// Initialize route handlers
         void setup_handlers();
         /// Initialize servers (may support workers in the future)
@@ -73,6 +84,16 @@ namespace mnginx{
         //// Main Section ////
         /// Launch MNginx
         void run();
+
+        //// Moudle Register Functions ////
+        template<HasModuleHandler T,class Policy,class... Policies> inline StateTree::AddResult add_module(const StateNode & tree){
+            Policy::template bind<T>(mods);
+            return add_module<T,Policies...>(tree);
+        }
+
+        template<HasModuleHandler T> inline StateTree::AddResult add_module(const StateNode & tree){
+            return handlers.add_new_handler(tree,T::handle);
+        }
     };
 
 }

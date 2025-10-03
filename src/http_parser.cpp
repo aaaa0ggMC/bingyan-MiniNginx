@@ -168,6 +168,8 @@ ParseCode HTTPRequest::parse(std::string_view str){
 /// @todo WIP
 std::pmr::vector<char> HTTPRequest::generate(){
     std::pmr::vector<char> rdata;
+    
+
     return rdata;
 }
 

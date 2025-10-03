@@ -3,11 +3,11 @@
 
 using namespace mnginx;
 
-StateTree::AddResult StateTree::add_new_handler(StateNode& tree,HandlerFn handler){
+StateTree::AddResult StateTree::add_new_handler(const StateNode& tree,HandlerFn handler){
     // step 1: check whether the tree has an handler
     if(!handler)return AddResult::NoHandler;
     Node * current = &root;
-    StateNode * pnode = &tree;
+    const StateNode * pnode = &tree;
     
     auto proc_match_any = [&](Node & n){
         if(pnode->rule == HandlerRule::Match_Any){ // they are the same

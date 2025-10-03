@@ -28,10 +28,16 @@ namespace mnginx{
         HTTPRequest pending_request;
         /// to determine whether pending_request is pending
         bool pending; 
+        /// client id
+        uint64_t client_id;
+
+        /// current max id to keep client unique
+        static uint64_t max_client_id;
 
         /// constructor
         inline ClientInfo(){
             find_last_pos = 0;
+            client_id = ++max_client_id;
             pending = false;
         }
     };

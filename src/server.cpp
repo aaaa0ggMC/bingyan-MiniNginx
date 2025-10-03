@@ -47,8 +47,12 @@ void Server::setup(){
 }
 
 void Server::run(){
+    for(auto & fn : mods.init){
+        if(fn)fn(server_fd,epoll,establishedClients,lg_acc,lg_err);
+    }
+    Clock timer;
     while(true){
-        auto [ok,ev_view] = epoll.wait(4000);
+        auto [ok,ev_view] = epoll.wait(10);
         if(ok){
             if(ev_view.size()){
                 lg(LOG_INFO) << "Received events!" << endlog;
@@ -64,6 +68,14 @@ void Server::run(){
             }
         }else{
             lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
+        }
+
+        // at least wait 5ms
+        if(timer.getOffset() > 5.0){
+            for(auto & tm : mods.timer){
+                if(tm)tm(timer.getOffset());
+            }
+            timer.clearOffset();
         }
     }
 }
@@ -188,7 +200,7 @@ void Server::handle_client(epoll_event & ev){
             it->second.buffer.erase(it->second.buffer.begin(),it->second.buffer.begin() + pos); 
             it->second.find_last_pos = 0;
             it->second.pending = true;
-            // some simple methods(GET) have no message body
+            // simple methods(GET) have no message body
             handle_pending_request(it->second,client_fd);
         }else{
             it->second.find_last_pos = it->second.buffer.size();
@@ -221,6 +233,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
         return resp;
     }();
     using M = HTTPRequest::HTTPMethod;
+    bool pass_to_handler = false;
 
     switch(req.method){
     case M::GET:{
@@ -232,18 +245,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
             cleanup_connection(fd);
             return;
         }else{ //nice guys now we can send something useful back
-            HandlerFn fn;
-            std::pmr::vector<std::pmr::string> vals;
-            auto result = handlers.parseURL(client.pending_request.url.main_path(),fn,vals);
-            if(result == StateTree::ParseResult::OK){
-                response.reset();
-                fn(client.pending_request,vals,response);
-                send_message(fd,response);
-            }else{
-                lg(LOG_INFO) << "Found nothing for the client " << (int)result << endlog;
-                // @todo add a not found handler!
-                send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
-            }
+            pass_to_handler = true;
         }
         client.pending = false;
         break;
@@ -312,24 +314,29 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
                 }// else just ignore,anyway,the task is not pending now
             }
         }
-        // @todo ... add code here
         client.pending = false;
+        pass_to_handler = true;
+        break;
+    }
+    default: //no way!
+        break;
+    }
 
+    if(pass_to_handler){
         HandlerFn fn;
         std::pmr::vector<std::pmr::string> vals;
         auto result = handlers.parseURL(client.pending_request.url.main_path(),fn,vals);
         if(result == StateTree::ParseResult::OK){
             response.reset();
-            fn(client.pending_request,vals,response);
-            send_message(fd,response);
+            auto result = fn(HandlerContext(fd,client.pending_request,vals,response,client));
+            if(result == HandleResult::Close){
+                cleanup_connection(fd);
+            }else if(result != HandleResult::AlreadySend)send_message(fd,response);
+
         }else{
             lg(LOG_INFO) << "Found nothing for the client" << endlog;
             send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
         }
-        break;
-    }
-    default: //no way!
-        break;
     }
 }
 

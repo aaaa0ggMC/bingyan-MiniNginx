@@ -13,6 +13,7 @@
 #define MN_SERVER
 #include <http_parser.h>
 #include <route_states.h>
+#include <modules/module_base.h>
 #include <arpa/inet.h>
 #include <epoll.h>
 #include <client.h>
@@ -32,7 +33,9 @@ namespace mnginx{
         /// the epoll object
         EPoll epoll;
         /// client established with current server,int is the fd of client
-        std::pmr::unordered_map<int,ClientInfo> establishedClients; 
+        std::pmr::unordered_map<int,ClientInfo> establishedClients;
+        /// module info
+        modules::ModuleFuncs mods;
     
         /// access log factory
         alib::g3::LogFactory & lg_acc;
@@ -48,9 +51,10 @@ namespace mnginx{
         inline Server(
             alib::g3::LogFactory & acc,
             alib::g3::LogFactory & err,
-            StateTree & hs
+            StateTree & hs,
+            modules::ModuleFuncs & a_mods
         ):
-        lg_acc{acc},lg_err{err},lg{acc},handlers{hs}{ // lg is used for compatible reason
+        lg_acc{acc},lg_err{err},lg{acc},handlers{hs},mods{a_mods}{ // lg is used for compatible reason
             server_fd = -1;
         }
 

@@ -11,6 +11,7 @@
 #ifndef MN_RSTATE
 #define MN_RSTATE
 #include <http_parser.h>
+#include <client.h>
 #include <functional>
 #include <memory>
 
@@ -19,7 +20,8 @@ namespace mnginx{
     /// result returned by Handler
     enum class HandleResult{
         Continue, ///< keep the connection with current client
-        Close ///< close the connection with current client
+        Close, ///< close the connection with current client
+        AlreadySend ///< you have already sent something to the client,the server wont use reposne to send again
     };
 
     /**
@@ -37,8 +39,25 @@ namespace mnginx{
         Match_Any ///< can match any string of the entry
     };
 
+    /// args need to pass to handler
+    struct HandlerContext{
+        int fd; ///< file descriptor
+        HTTPRequest & request; ///< incoming request,= client_info.pending_request
+        std::pmr::vector<std::pmr::string>& vals; ///< path vals
+        HTTPResponse& response; ///< output
+        ClientInfo & client; ///< something about the client
+
+        inline HandlerContext(
+            int fd,
+            HTTPRequest& rq,
+            std::pmr::vector<std::pmr::string>& nv,
+            HTTPResponse& rp,
+            ClientInfo & cl
+        ):fd{fd},request{rq},vals{nv},response{rp},client{cl}{}
+    };
+
     /// function type to handle routes
-    using HandlerFn = std::function<HandleResult(HTTPRequest &,const std::pmr::vector<std::pmr::string>&,HTTPResponse&)>;
+    using HandlerFn = std::function<HandleResult(HandlerContext)>;
 
     /**
      * @brief A user-oriented class for the user to build an route chain
@@ -147,7 +166,7 @@ namespace mnginx{
          * @return AddResult 
          * @start-date 2025/10/03
          */
-        AddResult add_new_handler(StateNode& tree,HandlerFn handler);
+        AddResult add_new_handler(const StateNode& tree,HandlerFn handler);
         
         // @todo wip,this function is not that essential
         // int delete_handler(StateNode& tree);

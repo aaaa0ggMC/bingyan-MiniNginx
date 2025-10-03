@@ -14,8 +14,8 @@ TEST(StateTreeTest, BuildAndTraverseTree){
        .node("node2")
        .node("node3");
     
-    // 添加处理器
-    auto handler1 = [](HTTPRequest &,const std::pmr::vector<std::pmr::string>&,HTTPResponse&){
+    // 添加处理器 - 更新为新的HandlerContext接口
+    auto handler1 = [](HandlerContext ctx){
          std::cout << "Handler 1 called" << std::endl; 
          return HandleResult::Continue;
         };
@@ -28,7 +28,7 @@ TEST(StateTreeTest, BuildAndTraverseTree){
     tree2.node(HandlerRule::Match_Any)
         .node("node4");
     
-    auto handler2 = [](HTTPRequest &,const std::pmr::vector<std::pmr::string>&,HTTPResponse&){
+    auto handler2 = [](HandlerContext ctx){
          std::cout << "Handler 2 called" << std::endl; 
          return HandleResult::Continue;
         };
@@ -41,7 +41,7 @@ TEST(StateTreeTest, BuildAndTraverseTree){
     tree3.node("node5")
         .node(HandlerRule::Match_Any);
     
-    auto handler3 = [](HTTPRequest &,const std::pmr::vector<std::pmr::string>&,HTTPResponse&){
+    auto handler3 = [](HandlerContext ctx){
          std::cout << "Handler 3 called" << std::endl; 
          return HandleResult::Continue;
         };
@@ -115,8 +115,8 @@ TEST(StateTreeTest, EmptyTreeTest) {
     StateTree state_tree;
     StateNode empty_tree; // 空的树
     
-    auto handler = [](HTTPRequest &,const std::pmr::vector<std::pmr::string>&,HTTPResponse&){
-         std::cout << "EMpty tree handler." << std::endl; 
+    auto handler = [](HandlerContext ctx){
+         std::cout << "Empty tree handler." << std::endl; 
          return HandleResult::Continue;
         };
     auto result = state_tree.add_new_handler(empty_tree, handler);
@@ -150,8 +150,6 @@ TEST(StateTreeTest, EmptyTreeTest) {
     std::cout << "=== End of Empty Tree Test ===" << std::endl;
 }
 
-#include <gtest/gtest.h>
-
 TEST(StateTreeStructureTest, BasicPathConstruction) {
     StateTree state_tree;
     
@@ -159,7 +157,7 @@ TEST(StateTreeStructureTest, BasicPathConstruction) {
     StateNode tree;
     tree.node("api").node("v1").node("users");
     
-    auto handler = [](HTTPRequest&, const std::pmr::vector<std::pmr::string>&, HTTPResponse&) {
+    auto handler = [](HandlerContext ctx) {
         return HandleResult::Continue;
     };
     
@@ -178,7 +176,7 @@ TEST(StateTreeStructureTest, WildcardPathConstruction) {
     StateNode tree;
     tree.node(HandlerRule::Match_Any).node("profile");
     
-    auto handler = [](HTTPRequest&, const std::pmr::vector<std::pmr::string>&, HTTPResponse&) {
+    auto handler = [](HandlerContext ctx) {
         return HandleResult::Continue;
     };
     
@@ -197,11 +195,11 @@ TEST(StateTreeStructureTest, ConflictDetection) {
     StateNode tree2;  
     tree2.node("users").node("123"); // 相同路径
     
-    auto handler1 = [](HTTPRequest&, const std::pmr::vector<std::pmr::string>&, HTTPResponse&) {
+    auto handler1 = [](HandlerContext ctx) {
         return HandleResult::Continue;
     };
     
-    auto handler2 = [](HTTPRequest&, const std::pmr::vector<std::pmr::string>&, HTTPResponse&) {
+    auto handler2 = [](HandlerContext ctx) {
         return HandleResult::Close;
     };
     
@@ -229,7 +227,7 @@ TEST(StateTreeStructureTest, DeepNestingLimit) {
         current = &current->node("level" + std::to_string(i));
     }
     
-    auto handler = [](HTTPRequest&, const std::pmr::vector<std::pmr::string>&, HTTPResponse&) {
+    auto handler = [](HandlerContext ctx) {
         return HandleResult::Continue;
     };
     
@@ -247,7 +245,7 @@ TEST(StateTreeStructureTest, MixedRulesConstruction) {
               .node("v1")                     // 精确匹配  
               .node(HandlerRule::Match_Any);  // 通配符
     
-    auto handler = [](HTTPRequest&, const std::pmr::vector<std::pmr::string>&, HTTPResponse&) {
+    auto handler = [](HandlerContext ctx) {
         return HandleResult::Continue;
     };
     
@@ -286,7 +284,7 @@ TEST(StateTreeStructureTest, StructureConsistency) {
     tree2.node("a").node("c"); 
     tree3.node("x").node(HandlerRule::Match_Any);
     
-    auto handler = [](auto&&...){ return HandleResult::Continue; };
+    auto handler = [](HandlerContext ctx){ return HandleResult::Continue; };
     
     state_tree.add_new_handler(tree1, handler);
     state_tree.add_new_handler(tree2, handler); 
@@ -295,6 +293,7 @@ TEST(StateTreeStructureTest, StructureConsistency) {
     std::cout << "=== Final Tree Structure ===" << std::endl;
     ValidateTreeStructure(state_tree.root);
 }
+
 TEST(StateTreeParseTest, WildcardPathParsing) {
     StateTree state_tree;
     
@@ -305,9 +304,9 @@ TEST(StateTreeParseTest, WildcardPathParsing) {
        .node("say");
     
     // 创建处理器，打印通配符值
-    auto handler = [](HTTPRequest& req, const std::pmr::vector<std::pmr::string>& params, HTTPResponse& res) {
+    auto handler = [](HandlerContext ctx) {
         std::cout << "Handler called with params: ";
-        for (const auto& param : params) {
+        for (const auto& param : ctx.vals) {
             std::cout << "[" << param << "] ";
         }
         std::cout << std::endl;
@@ -350,7 +349,9 @@ TEST(StateTreeParseTest, WildcardPathParsing) {
     if (found_handler) {
         HTTPRequest dummy_req;
         HTTPResponse dummy_res;
-        auto handle_result = found_handler(dummy_req, node_vals, dummy_res);
+        ClientInfo dummy_client;
+        HandlerContext ctx{0, dummy_req, node_vals, dummy_res, dummy_client};
+        auto handle_result = found_handler(ctx);
         std::cout << "Handler returned: " << static_cast<int>(handle_result) << std::endl;
     }
     
@@ -378,6 +379,7 @@ TEST(StateTreeParseTest, WildcardPathParsing) {
     };
     print_node(state_tree.root, 0);
 }
+
 TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
     // 创建多个独立的状态树，模拟不同的路由模块
     StateTree api_tree;    // API 路由
@@ -390,9 +392,9 @@ TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
         StateNode api_route;
         api_route.node("api").node("users").node(HandlerRule::Match_Any).node("profile");
         
-        auto api_handler = [](HTTPRequest& req, const std::pmr::vector<std::pmr::string>& params, HTTPResponse& res) {
-            std::cout << "API Handler: User profile for ID: " << params[2] << std::endl;
-            // params: [api, users, {user_id}, profile]
+        auto api_handler = [](HandlerContext ctx) {
+            std::cout << "API Handler: User profile for ID: " << ctx.vals[2] << std::endl;
+            // ctx.vals: [api, users, {user_id}, profile]
             return HandleResult::Close;
         };
         
@@ -406,9 +408,9 @@ TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
         StateNode auth_route;
         auth_route.node("auth").node(HandlerRule::Match_Any).node("callback");
         
-        auto auth_handler = [](HTTPRequest& req, const std::pmr::vector<std::pmr::string>& params, HTTPResponse& res) {
-            std::cout << "Auth Handler: OAuth callback for provider: " << params[1] << std::endl;
-            // params: [auth, {provider}, callback]
+        auto auth_handler = [](HandlerContext ctx) {
+            std::cout << "Auth Handler: OAuth callback for provider: " << ctx.vals[1] << std::endl;
+            // ctx.vals: [auth, {provider}, callback]
             return HandleResult::Close;
         };
         
@@ -422,9 +424,9 @@ TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
         StateNode static_route;
         static_route.node("static").node(HandlerRule::Match_Any).node(HandlerRule::Match_Any);
         
-        auto static_handler = [](HTTPRequest& req, const std::pmr::vector<std::pmr::string>& params, HTTPResponse& res) {
-            std::cout << "Static Handler: Serving file: " << params[1] << "/" << params[2] << std::endl;
-            // params: [static, {category}, {filename}]
+        auto static_handler = [](HandlerContext ctx) {
+            std::cout << "Static Handler: Serving file: " << ctx.vals[1] << "/" << ctx.vals[2] << std::endl;
+            // ctx.vals: [static, {category}, {filename}]
             return HandleResult::Close;
         };
         
@@ -461,7 +463,9 @@ TEST(StateTreeParseTest, MultipleTreesRealWorldScenario) {
         if (result == StateTree::ParseResult::OK && found_handler) {
             HTTPRequest dummy_req;
             HTTPResponse dummy_res;
-            auto handle_result = found_handler(dummy_req, node_vals, dummy_res);
+            ClientInfo dummy_client;
+            HandlerContext ctx{0, dummy_req, node_vals, dummy_res, dummy_client};
+            auto handle_result = found_handler(ctx);
             std::cout << "Handler execution result: " << static_cast<int>(handle_result) << std::endl;
         } else {
             std::cout << "No handler found or parse failed" << std::endl;

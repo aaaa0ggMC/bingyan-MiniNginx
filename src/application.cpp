@@ -7,8 +7,11 @@
 #include <fcntl.h>
 #include <stack>
 #include <iostream>
+#include <modules/reverse_proxy.h>
 
 using namespace mnginx;
+
+uint64_t ClientInfo::max_client_id = 0;
 
 Application::Application():
 logger{LOG_SHOW_HEAD | LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},
@@ -20,13 +23,9 @@ lg{"MiniNginx",logger}{
 void Application::setup(){
     setup_general();
     setup_logger();
+    setup_modules();
     setup_handlers();
     setup_servers();
-}
-
-void Application::setup_logger(){
-    logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest.log",4 * 1024 * 1024));
-    logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
 }
 
 void Application::setup_general(){
@@ -35,49 +34,40 @@ void Application::setup_general(){
     std::pmr::set_default_resource(&pool);
 }
 
+void Application::setup_logger(){
+    logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest.log",4 * 1024 * 1024));
+    logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
+}
+
+void Application::setup_modules(){
+    using namespace modules;
+    StateNode root;
+    root.node("mod").node("rp").node(HandlerRule::Match_Any);
+    add_module<ModReverseProxy,PolicyFull>(root);
+}
+
 void Application::setup_handlers(){
     StateNode file;
     file.node(HandlerRule::Match_Any);
-    handlers.add_new_handler(file, [](HTTPRequest & rq, const std::pmr::vector<std::pmr::string>& vals, HTTPResponse& rp){
-        rp.status_code = HTTPResponse::StatusCode::OK;
-        rp.status_str = "OK";
-        rp.headers["Content-Type"] = "text/html; charset=utf-8";
-        rp.headers["Connection"] = "close";
+    handlers.add_new_handler(file, [](HandlerContext ctx){
+        ctx.response.status_code = HTTPResponse::StatusCode::OK;
+        ctx.response.status_str = "OK";
+        ctx.response.headers["Content-Type"] = "text/html; charset=utf-8";
+        ctx.response.headers["Connection"] = "close";
         
-        std::string first_val = vals.empty() ? "No Value" : std::string(vals[0].data(), vals[0].size());
+        std::string first_val = ctx.vals.empty() ? "No Value" : std::string(ctx.vals[0].data(), ctx.vals[0].size());
         std::string html = "<html><body><h1>Hello World</h1><p>Value: " + first_val + "</p></body></html>";
         
         // 直接构造 HTTPData (pmr::vector<char>)
-        rp.data.emplace(html.begin(), html.end());
-        rp.headers[KEY_Content_Length] = std::to_string(rp.data->size());
-        
-        return HandleResult::Continue;
-    });
-    file = StateNode();
-    file.node("file").node(HandlerRule::Match_Any);
-    handlers.add_new_handler(file, [](HTTPRequest & rq, const std::pmr::vector<std::pmr::string>& vals, HTTPResponse& rp){
-        rp.status_code = HTTPResponse::StatusCode::OK;
-        rp.status_str = "OK";
-        rp.headers["Content-Type"] = "text/plain; charset=utf-8";
-        rp.headers["Connection"] = "close";
-        
-        // let's read
-        std::string ou = "";
-        std::string path ="/sorry/path/encrypted/";
-        path += vals[1];
-        alib::g3::Util::io_readAll(path,ou);
-        
-        std::cout << "PATH:" << path << std::endl;
-
-        // 直接构造 HTTPData (pmr::vector<char>)
-        rp.data.emplace(ou.begin(), ou.end());
+        ctx.response.data.emplace(html.begin(), html.end());
+        ctx.response.headers[KEY_Content_Length] = std::to_string(ctx.response.data->size());
         
         return HandleResult::Continue;
     });
 }
 
 void Application::setup_servers(){
-    server = std::make_unique<Server>(lg,lg,handlers);
+    server = std::make_unique<Server>(lg,lg,handlers,mods);
     server->setup();
 }
 

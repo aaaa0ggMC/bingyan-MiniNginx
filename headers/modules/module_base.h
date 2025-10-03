@@ -1,0 +1,56 @@
+#ifndef MN_MOD_BASE
+#define MN_MOD_BASE
+#include <client.h>
+#include <epoll.h>
+#include <alib-g3/alogger.h>
+#include <functional>
+
+namespace mnginx::modules{
+    using ModuleInitFn = std::function<void(
+        int server_fd,
+        EPoll& epoll,
+        std::pmr::unordered_map<int,ClientInfo>&,
+        alib::g3::LogFactory & lg_acc,
+        alib::g3::LogFactory & lg_err
+    )>;
+
+    using ModuleTimerFn = std::function<void(double actual_elapse_ms)>;
+
+    template<typename T>
+    concept HasModuleInit = requires(T mod,
+                                    int server_fd,
+                                    EPoll& epoll, 
+                                    std::pmr::unordered_map<int, ClientInfo>& clients,
+                                    alib::g3::LogFactory& lg_acc,
+                                    alib::g3::LogFactory& lg_err) {
+        { T::module_init(server_fd, epoll, clients, lg_acc, lg_err) } -> std::same_as<void>;
+    };
+
+    template<typename T>
+    concept HasModuleTimer = requires(T mod, double elapsed_ms) {
+        { T::module_timer(elapsed_ms) } -> std::same_as<void>;
+    };
+
+    struct ModuleFuncs{
+        /// before server actaully runs,call these init functions
+        std::vector<ModuleInitFn> init;
+        /// timed updates for some modules
+        std::vector<ModuleTimerFn> timer;
+    };
+    struct PolicyInit{
+        template<HasModuleInit T> inline static void bind(ModuleFuncs & f){
+            f.init.push_back(T::module_init);
+        }
+    };
+
+    struct PolicyTimer{
+        template<HasModuleTimer T> inline static void bind(ModuleFuncs & f){
+           f.timer.push_back(T::module_timer);
+        }
+    };
+}
+
+// sus defines
+#define PolicyFull mnginx::modules::PolicyInit,mnginx::modules::PolicyTimer
+
+#endif
