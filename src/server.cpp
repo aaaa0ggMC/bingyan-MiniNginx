@@ -1,6 +1,7 @@
 #include <server.h>
 #include <fcntl.h>
 #include <string.h>
+#include <iostream>
 
 using namespace mnginx;
 using namespace alib::g3;
@@ -236,6 +237,10 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
     bool pass_to_handler = false;
 
     switch(req.method){
+    case M::CONNECT:
+    case M::TRACE:
+    case M::OPTIONS:
+    case M::HEAD:
     case M::GET:{
         if(req.headers.find(KEY_Content_Length) != req.headers.end() ||
            req.headers.find(KEY_Transfer_Encoding) != req.headers.end()){ //bad request
@@ -250,6 +255,9 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
         client.pending = false;
         break;
     }
+    case M::PUT:
+    case M::PATCH:
+    case M::DELETE:
     case M::POST:{ // there's data in the message body,so we need to extract the data
         bool ok = false;
         auto p = req.headers.find(KEY_Transfer_Encoding);
@@ -259,6 +267,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
                 lg(LOG_ERROR) << "Transfer-Encoding mode "  << p->second <<  " is not supported." << std::endl;
                 return;
             }
+            std::cout << "Guys its time for chunked transfer" << std::endl;
             // chunked mode
             // read existing data
             while(true){

@@ -14,12 +14,12 @@ HandleResult ModReverseProxy::handle(HandlerContext ctx){
     ctx.request.headers["Host"] = "localhost:7000";
     ctx.request.headers["X-Forwarded-For"] = "127.0.0.1";
     ctx.request.headers["X-Forwarded-Host"] = "localhost:9191";
+    //ctx.request.url.parse_raw_url("/Blog/");
     
     auto& client = proxy.clients.try_emplace(ctx.client.client_id,ReverseClient(ctx.fd)).first->second;
     
     client.send_data(ctx.request.generate());
     lg(LOG_ERROR) << "Watch ME!" << endlog;
-    // usleep(50000);
     client.reverse_proxy();
     lg(LOG_ERROR) << "Well DONT Watch ME!" << endlog;
 
@@ -50,11 +50,12 @@ int ReverseClient::connect_server(){
     std::cout << "Created socket for" << reverse_fd<< std::endl;
     setup();
     buffer.clear();
+    fcntl(client_fd,F_SETFL,fcntl(client_fd,F_GETFL,0) & ~O_NONBLOCK);
     if(connect(client_fd,(struct sockaddr*)&server_addr, sizeof(server_addr)) < 0){
-        if(errno != EINPROGRESS){
-            return -1;
-        }
+        fcntl(client_fd,F_SETFL,fcntl(client_fd,F_GETFL,0) | O_NONBLOCK);
+        return -1;
     }
+    fcntl(client_fd,F_SETFL,fcntl(client_fd,F_GETFL,0) | O_NONBLOCK);
     connected = true;
     return 0;
 }
@@ -66,6 +67,7 @@ int ReverseClient::reverse_proxy(){
     while(true){
         int ret = read(client_fd,buf,1024);
         if(ret > 0){
+            std::cout << "reverse proxied" << std::endl;
             send(reverse_fd,buf,ret,0);
         }else if(ret == 0){ // connection was closed
             return -1; // close the connection with the client

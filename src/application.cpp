@@ -42,13 +42,13 @@ void Application::setup_logger(){
 void Application::setup_modules(){
     using namespace modules;
     StateNode root;
-    root.node("mod").node("rp").node(HandlerRule::Match_Any);
+    root.node(HandlerRule::Match_Any);
     add_module<ModReverseProxy,PolicyFull>(root);
 }
 
 void Application::setup_handlers(){
     StateNode file;
-    file.node(HandlerRule::Match_Any);
+    file.node("handler");
     handlers.add_new_handler(file, [](HandlerContext ctx){
         ctx.response.status_code = HTTPResponse::StatusCode::OK;
         ctx.response.status_str = "OK";

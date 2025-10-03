@@ -104,7 +104,14 @@ namespace mnginx{
         enum class HTTPMethod : int32_t{
             GET, ///< HTTP GET
             POST, ///< HTTP POST
-            InvalidMethod ///< All Other unsupported types are categorized to this
+            InvalidMethod, ///< All Other unsupported types are categorized to this
+            HEAD, ///< HTTP HEAD
+            OPTIONS,///< HTTP OPTIONS
+            CONNECT, ///< HTTP CONNECT
+            TRACE, ///< HTTP TRACE
+            PUT, ///< HTTP PUT
+            PATCH, ///< HTTP PATCH
+            DELETE ///< HTTP DELETE
         };
 
         //// Request Line

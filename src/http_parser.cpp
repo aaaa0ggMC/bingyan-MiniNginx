@@ -230,20 +230,35 @@ HTTPRequest::HTTPMethod HTTPRequest::getMethod(std::string_view str){
     
     if(!strncmp(str.data(),"GET",3))return M::GET;
     else if(!strncmp(str.data(),"POST",4))return M::POST;
+    else if(!strncmp(str.data(),"HEAD",4))return M::HEAD;
+    else if(!strncmp(str.data(),"PUT",3))return M::PUT;
+    else if(!strncmp(str.data(),"CONNECT",5))return M::CONNECT;
+    else if(!strncmp(str.data(),"PATCH",5))return M::PATCH;
+    else if(!strncmp(str.data(),"DELETE",6))return M::DELETE;
+    else if(!strncmp(str.data(),"OPTIONS",7))return M::OPTIONS;
+    else if(!strncmp(str.data(),"TRACE",6))return M::TRACE;
     else return M::InvalidMethod;
 }
 
 std::string_view HTTPRequest::getMethodString(HTTPRequest::HTTPMethod method){
     using M = HTTPRequest::HTTPMethod;
 
+#define CREATE_NEW(X) case M::X : return ""#X;
+
     switch(method){
-    case M::GET:
-        return "GET";
-    case M::POST:
-        return "POST";
+    CREATE_NEW(PUT);
+    CREATE_NEW(POST);
+    CREATE_NEW(CONNECT);
+    CREATE_NEW(TRACE);
+    CREATE_NEW(OPTIONS);
+    CREATE_NEW(PATCH);
+    CREATE_NEW(HEAD);
+    CREATE_NEW(GET);
+    CREATE_NEW(DELETE);
     default:
         return "INVALID";
     }
+#undef CREATE_NEW
 }
 
 //// HTTP Response ////
