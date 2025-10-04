@@ -19,7 +19,46 @@
 #include <client.h>
 #include <alib-g3/alogger.h>
 
+constexpr size_t mnginx_handle_buffer_size = 4096;
+
 namespace mnginx{
+    /**
+     * @brief Server configs
+     * 
+     * @start-date 2025/10/05
+     */
+    struct ServerConfig{
+        /// where the server binds to
+        sockaddr_in address; 
+
+        /// backlog count used in listen()
+        int backlog_count; 
+        /// the event list size of epoll
+        size_t epoll_event_list_size; 
+        /// when calling epoll_wait,this is the timeout value,uint: milliseconds
+        /// -1 means suspend till events come
+        int epoll_wait_interval_ms; 
+        /// to prevent module_timer running so frequently,this is the minimum time timer need to wait
+        /// the actual time varies 'cause epoll_wait's return is not predictable
+        size_t module_timer_at_least_wait_ms;
+        /// HTTP Package Max Size, 0 for no restrictions
+        size_t http_package_max_size;
+
+        inline void reset(){
+            address.sin_family = AF_INET;
+            address.sin_addr.s_addr = INADDR_ANY;
+            address.sin_port = htons(9191); // this is not an ad!
+            backlog_count = 1024;
+            epoll_event_list_size = 1024;
+            epoll_wait_interval_ms = 10;
+            module_timer_at_least_wait_ms = 5;
+            http_package_max_size = 8 * 1024 * 1024;
+        }
+
+        inline ServerConfig(){
+            reset();
+        }
+    };
     /**
      * @brief Server class
      * @start-date 2025/10/03
@@ -27,9 +66,6 @@ namespace mnginx{
     struct Server{
         /// file descriptor of current server,it will be inited in setup()
         int server_fd;
-        /// address of the server
-        /// @todo make this configurable
-        sockaddr_in address;
         /// the epoll object
         EPoll epoll;
         /// client established with current server,int is the fd of client
@@ -44,6 +80,9 @@ namespace mnginx{
 
         /// reference to route the state machine
         StateTree & handlers;
+
+        /// configs
+        ServerConfig config;
 
         /// create the framework of the server with logger and state machine
         inline Server(

@@ -61,6 +61,9 @@ namespace mnginx{
 
         /// config system
         Config config;
+
+        /// sub configs
+        ServerConfig cfg_server;
     public:
         /// used in main() to return,initially 0
         int return_result; 

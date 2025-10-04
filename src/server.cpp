@@ -1,57 +1,47 @@
 #include <server.h>
 #include <fcntl.h>
 #include <string.h>
+#include <socket_util.h>
 
 using namespace mnginx;
 using namespace alib::g3;
 
-static char* ip_to_str(in_addr_t addr){
-    thread_local static char client_ip[INET_ADDRSTRLEN];
-    memset(client_ip, 0, sizeof(client_ip));
-    inet_ntop(AF_INET,&addr,client_ip,sizeof(client_ip));
-    return client_ip;
-}
-
 void Server::setup(){
-    int len = sizeof(address);
+    int len = sizeof(config.address);
 
-    if((server_fd = socket(AF_INET,SOCK_STREAM,0)) == -1){
+    server_fd = Util::create_nonblocking_tcp_socket();
+    if(server_fd == -1){
         lg_err(LOG_CRITI) << "Cannot create server socket: " << strerror(errno) << endlog;
         return;
     }
 
-    address.sin_family = AF_INET;
-    address.sin_addr.s_addr = INADDR_ANY;
-    address.sin_port = htons(9191);
-
-    // non-block mode
-    fcntl(server_fd,F_SETFL,fcntl(server_fd,F_GETFL,0) | O_NONBLOCK);
-
     // resuable port
-    int reuse = 1;
-    if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
+    if(Util::set_reuse_addr(server_fd) < 0){
         lg_err(LOG_WARN) << "Failed to set SO_REUSEADDR: " << strerror(errno) << endlog;
     }
 
-    if(bind(server_fd,(sockaddr*)&address,sizeof(address)) == -1){
-        lg_err(LOG_CRITI) << "Cannot bind the port " << ntohs(address.sin_port) << " for the server:" << strerror(errno) << endlog;
+    if(bind(server_fd,(sockaddr*)&config.address,sizeof(config.address)) == -1){
+        lg_err(LOG_CRITI) << "Cannot bind the port " << ntohs(config.address.sin_port) << " for the server:" << strerror(errno) << endlog;
         close_server();
         return;
     }
 
     // n is the count of backlog,other clients will be suspended
-    if(listen(server_fd,1024) == -1){
-        lg_err(LOG_CRITI) << "Listen failed on port " << ntohs(address.sin_port) << ": " << strerror(errno) << endlog;
+    if(listen(server_fd,config.backlog_count) == -1){
+        lg_err(LOG_CRITI) << "Listen failed on port " << ntohs(config.address.sin_port) << ": " << strerror(errno) << endlog;
         std::exit(-1);
     }
     
     // Epoll settings
-    epoll.resize(1024);
+    epoll.resize(config.epoll_event_list_size);
 
     // listen for connections
     epoll.add(server_fd,EPOLLIN); // care about read ==> client connections,no EPOLLET,this will damage the connection
 
     /// all set,now let's wait for client in the run function 
+    lg_acc(LOG_INFO) << "Server listening on " << 
+    mnginx::Util::ip_to_str(config.address.sin_addr.s_addr) << ":" << 
+    ntohs(config.address.sin_port) << endlog;
 }
 
 void Server::run(){
@@ -61,7 +51,7 @@ void Server::run(){
     }
     Clock timer;
     while(true){
-        auto [ok,ev_view] = epoll.wait(10);
+        auto [ok,ev_view] = epoll.wait(config.epoll_wait_interval_ms);
         if(ok){
             if(ev_view.size()){
                 for(auto & ev : ev_view){
@@ -78,8 +68,8 @@ void Server::run(){
             lg_err(LOG_ERROR) << "Epoll wait failed: " << strerror(errno) << endlog;
         }
 
-        // at least wait 5ms
-        if(timer.getOffset() > 5.0){
+        // at least wait 
+        if(timer.getOffset() > config.module_timer_at_least_wait_ms){
             for(auto & tm : mods.timer){
                 if(tm)tm(timer.getOffset());
             }
@@ -106,7 +96,7 @@ void Server::accept_connections(){
         }else{
             fcntl(client_fd,F_SETFL,fcntl(client_fd,F_GETFL,0) | O_NONBLOCK);
             lg_acc(LOG_INFO) << "New client connected: fd[" << client_fd 
-            << "] addr[" << ip_to_str(client_info.sin_addr.s_addr) << "]" << endlog;
+            << "] addr[" << Util::ip_to_str(client_info.sin_addr.s_addr) << "]" << endlog;
             establishedClients.emplace(client_fd,ClientInfo());
             // add epoll events
             epoll.add(client_fd,EPOLLIN | EPOLLET);
@@ -115,7 +105,7 @@ void Server::accept_connections(){
 }
 
 void Server::handle_client(epoll_event & ev){
-    thread_local static char buffer[1024]; // thread_local is just a decorative item I think
+    thread_local static char buffer[mnginx_handle_buffer_size]; // thread_local is just a decorative item I think
     int client_fd = ev.data.fd;
     bool shouldClose = false;
 
@@ -165,7 +155,7 @@ void Server::handle_client(epoll_event & ev){
     }while(false);
 
     // @todo if the size of the buffer exceedes 8MB(can be configured later),we treat it as an sus one
-    if(it->second.buffer.size() > 8 * 1024 * 1024){
+    if(config.http_package_max_size && it->second.buffer.size() > config.http_package_max_size){
         lg_err(LOG_ERROR) << "Client message too large: " 
         << it->second.buffer.size() << " bytes, fd[" 
         << client_fd << "]" << endlog;

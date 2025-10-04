@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <stack>
 #include <modules/reverse_proxy.h>
+#include <socket_util.h>
 
 using namespace mnginx;
 
@@ -49,12 +50,11 @@ void Application::setup_general(){
     // I just know how to use
     std::pmr::set_default_resource(&pool);
     // create logger console target
-}
-
-void Application::setup_config(){
     logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
     lgerr.appendLogOutputTarget("console",std::make_shared<lot::Console>());
 }
+
+// app setup config see application_config.cpp
 
 void Application::setup_logger(){
     logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest-acc.log",4 * 1024 * 1024));
@@ -96,6 +96,7 @@ void Application::setup_handlers(){
 
 void Application::setup_servers(){
     server = std::make_unique<Server>(lg,lge,handlers,mods);
+    server->config = cfg_server;
     server->setup();
 }
 

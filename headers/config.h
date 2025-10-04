@@ -27,6 +27,16 @@ namespace mnginx{
                     return match;
                 });
             }
+
+            inline std::optional<std::string_view> get_node_recursive_value(const std::vector<std::string_view> & location,unsigned int expected_index = 0,unsigned int value_index = 0){
+                auto node = get_node_recursive(location,expected_index);
+                if(node && node->get().values.size() > value_index){
+                    auto & str = node->get().values[value_index];
+                    if(str.size() > 2 && str[0] == '\"')return std::string_view(str.begin()+1,str.end()-1);
+                    else if(str.size() == 2 && str[0] == str[1] && str[0] == '\"')return "";
+                    return str;
+                }else return std::nullopt;
+            }
         };
 
         enum class LoadResult{
