@@ -41,8 +41,6 @@ namespace mnginx{
         alib::g3::LogFactory & lg_acc;
         /// error log factory
         alib::g3::LogFactory & lg_err;
-        /// access log factory for compatible reason
-        alib::g3::LogFactory & lg;
 
         /// reference to route the state machine
         StateTree & handlers;
@@ -54,7 +52,7 @@ namespace mnginx{
             StateTree & hs,
             modules::ModuleFuncs & a_mods
         ):
-        lg_acc{acc},lg_err{err},lg{acc},handlers{hs},mods{a_mods}{ // lg is used for compatible reason
+        lg_acc{acc},lg_err{err},handlers{hs},mods{a_mods}{ // lg is used for compatible reason
             server_fd = -1;
         }
 
@@ -71,6 +69,8 @@ namespace mnginx{
         void setup();
         /// run the server
         void run();
+        /// close the server
+        void close_server();
 
         /// accept all queued connections when epoll detected EPOLLIN of serverfd
         void accept_connections();

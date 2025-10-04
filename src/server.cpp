@@ -5,12 +5,19 @@
 using namespace mnginx;
 using namespace alib::g3;
 
+static char* ip_to_str(in_addr_t addr){
+    thread_local static char client_ip[INET_ADDRSTRLEN];
+    memset(client_ip, 0, sizeof(client_ip));
+    inet_ntop(AF_INET,&addr,client_ip,sizeof(client_ip));
+    return client_ip;
+}
+
 void Server::setup(){
     int len = sizeof(address);
 
     if((server_fd = socket(AF_INET,SOCK_STREAM,0)) == -1){
-        lg(LOG_CRITI) << "Cannot create a socket for the server:" << strerror(errno) << endlog;
-        std::exit(-1);
+        lg_err(LOG_CRITI) << "Cannot create server socket: " << strerror(errno) << endlog;
+        return;
     }
 
     address.sin_family = AF_INET;
@@ -23,17 +30,18 @@ void Server::setup(){
     // resuable port
     int reuse = 1;
     if (setsockopt(server_fd, SOL_SOCKET, SO_REUSEADDR, &reuse, sizeof(reuse)) < 0) {
-        lg(LOG_WARN) << "Cannot set SO_REUSEADDR:" << strerror(errno) << endlog;
+        lg_err(LOG_WARN) << "Failed to set SO_REUSEADDR: " << strerror(errno) << endlog;
     }
 
     if(bind(server_fd,(sockaddr*)&address,sizeof(address)) == -1){
-        lg(LOG_CRITI) << "Cannot bind the port " << ntohs(address.sin_port) << " for the server:" << strerror(errno) << endlog;
-        std::exit(-1);
+        lg_err(LOG_CRITI) << "Cannot bind the port " << ntohs(address.sin_port) << " for the server:" << strerror(errno) << endlog;
+        close_server();
+        return;
     }
 
     // n is the count of backlog,other clients will be suspended
     if(listen(server_fd,1024) == -1){
-        lg(LOG_CRITI) << "Cannot listen the port " << ntohs(address.sin_port) << ":" << strerror(errno) << endlog;
+        lg_err(LOG_CRITI) << "Listen failed on port " << ntohs(address.sin_port) << ": " << strerror(errno) << endlog;
         std::exit(-1);
     }
     
@@ -47,6 +55,7 @@ void Server::setup(){
 }
 
 void Server::run(){
+    if(server_fd < 0)return;
     for(auto & fn : mods.init){
         if(fn)fn(server_fd,epoll,establishedClients,lg_acc,lg_err);
     }
@@ -55,7 +64,6 @@ void Server::run(){
         auto [ok,ev_view] = epoll.wait(10);
         if(ok){
             if(ev_view.size()){
-                lg(LOG_INFO) << "Received events!" << endlog;
                 for(auto & ev : ev_view){
                     if(ev.data.fd == server_fd){
                         accept_connections();
@@ -67,7 +75,7 @@ void Server::run(){
                 // lg(LOG_WARN) << "Waited to timeout but received no clients!" << endlog;
             }
         }else{
-            lg(LOG_ERROR) << "Error occured when waiting for messages:" << strerror(errno) << endlog;
+            lg_err(LOG_ERROR) << "Epoll wait failed: " << strerror(errno) << endlog;
         }
 
         // at least wait 5ms
@@ -80,6 +88,11 @@ void Server::run(){
     }
 }
 
+void Server::close_server(){
+    if(server_fd > 0)close(server_fd);
+    server_fd = -1;
+}
+
 void Server::accept_connections(){
     int client_fd = -1;
     struct sockaddr_in client_info;
@@ -87,14 +100,14 @@ void Server::accept_connections(){
     while(true){
         if((client_fd = accept(server_fd,(sockaddr*)&client_info,(socklen_t*)&sizelen)) == -1){
             if(errno == EAGAIN || errno == EWOULDBLOCK){
-                lg(LOG_TRACE) << "Accept work finished." << endlog;
+                // Accept work finished
                 break;
-            }else lg(LOG_ERROR) << "Error occured when accepting new client!:" << strerror(errno) << endlog;
+            }else lg_err(LOG_ERROR) << "Accept failed: " << strerror(errno) << endlog;
         }else{
             fcntl(client_fd,F_SETFL,fcntl(client_fd,F_GETFL,0) | O_NONBLOCK);
-            lg(LOG_INFO) << "Established new client: fd[" << client_fd << "] addr[" << client_info.sin_addr.s_addr << "]" << endlog;
+            lg_acc(LOG_INFO) << "New client connected: fd[" << client_fd 
+            << "] addr[" << ip_to_str(client_info.sin_addr.s_addr) << "]" << endlog;
             establishedClients.emplace(client_fd,ClientInfo());
-
             // add epoll events
             epoll.add(client_fd,EPOLLIN | EPOLLET);
         }
@@ -109,17 +122,17 @@ void Server::handle_client(epoll_event & ev){
     if(!(ev.events & EPOLLIN))return;
     
     if(ev.events & EPOLLRDHUP){
-        lg(LOG_INFO) << "Client " << client_fd << " performed orderly shutdown" << endlog;
+        lg_acc(LOG_INFO) << "Client orderly shutdown: fd[" << client_fd << "]" << endlog;
         shouldClose = true;
     }
     
     if(ev.events & EPOLLHUP){
-        lg(LOG_INFO) << "Client " << client_fd << " hung up" << endlog;
+        lg_err(LOG_WARN) << "Client hung up: fd[" << client_fd << "]" << endlog;
         shouldClose = true;
     }
     
     if(ev.events & EPOLLERR){
-        lg(LOG_INFO) << "Client " << client_fd << " connection error" << endlog;
+        lg_err(LOG_ERROR) << "Client connection error: fd[" << client_fd << "]" << endlog;
         shouldClose = true;
     }
 
@@ -132,21 +145,20 @@ void Server::handle_client(epoll_event & ev){
     auto it = establishedClients.find(client_fd);
     if(it == establishedClients.end()){ // no way!
         // i think there's no way this code could be run
-        lg(LOG_ERROR) << "The coming client is not recorded!" << endlog; 
+        lg_err(LOG_ERROR) << "Unregistered client connection: fd[" << client_fd << "]" << endlog;
         cleanup_connection(client_fd);
         return;
     }
     do{
         size_t count = read(client_fd, buffer, sizeof(buffer));
         if(count == 0){
-            lg(LOG_INFO) << "Client closed the connection" << endlog;
+            lg_acc(LOG_INFO) << "Client closed connection: fd[" << client_fd << "]" << endlog;
             shouldClose = true;
         }else if(count == -1 && errno != EAGAIN){
-            lg(LOG_ERROR) << "Error occured when reading data from client:" << strerror(errno) << endlog;
+            lg_err(LOG_ERROR) << "Read failed: " << strerror(errno) << " fd[" << client_fd << "]" << endlog;
             shouldClose = true;
         }else if(count > 0){
-            std::string test(buffer,buffer + count);
-            lg(LOG_INFO) << "Received \"" << test << " \"from client" << endlog;
+            lg_acc(LOG_INFO) << "Received " << count << " bytes from client: fd[" << client_fd << "]" << endlog;
             it->second.buffer.insert(it->second.buffer.end(),buffer,buffer + count);
         }
         if(count == sizeof(buffer))continue; //maybe there's more data
@@ -154,7 +166,9 @@ void Server::handle_client(epoll_event & ev){
 
     // @todo if the size of the buffer exceedes 8MB(can be configured later),we treat it as an sus one
     if(it->second.buffer.size() > 8 * 1024 * 1024){
-        lg(LOG_ERROR) << "The client fd[" << client_fd << "] post toos long a message!" << endlog;
+        lg_err(LOG_ERROR) << "Client message too large: " 
+        << it->second.buffer.size() << " bytes, fd[" 
+        << client_fd << "]" << endlog;
         shouldClose = true;
     }
 
@@ -180,21 +194,22 @@ void Server::handle_client(epoll_event & ev){
             for(;(data_chunk[i] < 'A' || data_chunk[i] > 'Z') && i < data_chunk.size();++i)continue;
             if(i >= data_chunk.size()){
                 // invalid connection data,so we close the connection
-                cleanup_connection(client_fd);
+                lg_err(LOG_WARN) << "Invalid HTTP data format from client: fd[" << client_fd << "]" << endlog;
+                cleanup_connection(client_fd) ;
                 return;
             }
             std::string_view valid_chunk (it->second.buffer.begin() + i,it->second.buffer.begin() + pos);
             it->second.pending_request = HTTPRequest();
-            lg(LOG_INFO) <<  "We have processed:["  << std::string(valid_chunk.begin(),valid_chunk.end()) << "]" << std::endl;
             if(it->second.pending_request.parse(valid_chunk) != ParseCode::Success){
                 // invalid HTTP Method
+                lg_err(LOG_WARN) << "Invalid HTTP request from client: fd[" << client_fd << "]" << endlog;
                 cleanup_connection(client_fd);
                 return;
             }else{
-                lg(LOG_TRACE) << "Successfully parsed a header: method[" <<
-                HTTPRequest::getMethodString(it->second.pending_request.method) << "] url[" <<
-                it->second.pending_request.url.full_path() << "] version[" << it->second.pending_request.version.major << "."
-                << it->second.pending_request.version.minor << "]..." << endlog; 
+                lg_acc(LOG_INFO) << HTTPRequest::getMethodString(it->second.pending_request.method) 
+                 << " " << it->second.pending_request.url.full_path() 
+                 << " HTTP/" << it->second.pending_request.version.major 
+                 << "." << it->second.pending_request.version.minor << endlog;
             }
             // note that all the string_view will have memeory issue after this call
             it->second.buffer.erase(it->second.buffer.begin(),it->second.buffer.begin() + pos); 
@@ -211,14 +226,14 @@ void Server::handle_client(epoll_event & ev){
 bool Server::cleanup_connection(int fd){
     auto it = establishedClients.find(fd);
     if(it == establishedClients.end()){
-        lg(LOG_WARN) << "Trying to cleanup a fd that is not recorded." << endlog;
+        lg_err(LOG_WARN) << "Cleanup unregistered fd: " << fd << endlog;
         return false;
     }else{
         // cleanup epoll data
         epoll.del(fd);
         close(fd); // close client fd from server
         establishedClients.erase(it);
-        lg(LOG_INFO) << "Client with fd [" << fd << "] was closed." << endlog;
+        lg_acc(LOG_INFO) << "Connection closed: fd[" << fd << "]" << endlog;
         return true;
     }
 }
@@ -243,7 +258,8 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
     case M::GET:{
         if(req.headers.find(KEY_Content_Length) != req.headers.end() ||
            req.headers.find(KEY_Transfer_Encoding) != req.headers.end()){ //bad request
-            lg(LOG_ERROR) << "Client " << fd << " passed GET request with message body!" << endlog;
+            lg_err(LOG_WARN) << HTTPRequest::getMethodString(req.method) 
+                << " request with body from fd[" << fd << "]" << endlog;
             send_message_simp(fd,HTTPResponse::StatusCode::BadRequest,
                 HTTPResponse::get_status_description(HTTPResponse::StatusCode::BadRequest));
             cleanup_connection(fd);
@@ -263,7 +279,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
         if(!client.pending_request.data)client.pending_request.data.emplace();
         if(p != req.headers.end()){
             if(p->second.compare("chunked")){
-                lg(LOG_ERROR) << "Transfer-Encoding mode "  << p->second <<  " is not supported." << std::endl;
+                lg_err(LOG_WARN) << "Unsupported Transfer-Encoding: " << p->second << endlog;
                 return;
             }
             // chunked mode
@@ -275,7 +291,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
                 if(pos == std::string_view::npos)return; // data is not well prepared
                 int count = strtol(buffer.data(),&endptr,16); // @note the chunked data is a hex number
                 if(endptr == buffer.data()){ // invalid character
-                        lg(LOG_ERROR) << "Client " << fd << " passed POST request with bad message body!" << endlog;
+                        lg_err(LOG_WARN) << "Bad chunked encoding format from fd[" << fd << "]" << endlog;
                         send_message_simp(fd,HTTPResponse::StatusCode::BadRequest,
                             HTTPResponse::get_status_description(HTTPResponse::StatusCode::BadRequest));
                         cleanup_connection(fd);
@@ -285,7 +301,8 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
                             buffer.begin() + (pos+2),buffer.begin() + (pos+2+count));
                     // check whether it ends with \r\n]
                     if(strncmp("\r\n",buffer.data() + (pos+2+count),2)){
-                        lg(LOG_ERROR) << "Client " << fd << " passed POST request with bad message body!" << endlog;
+                        lg_err(LOG_WARN) << "Invalid chunked encoding terminator from fd[" 
+                            << fd << "]" << endlog;
                         send_message_simp(fd,HTTPResponse::StatusCode::BadRequest,
                             HTTPResponse::get_status_description(HTTPResponse::StatusCode::BadRequest));
                         cleanup_connection(fd);
@@ -310,7 +327,6 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
                     if(client.buffer.size() < length){
                         return; // data not well prepared
                     }
-                    lg(LOG_WARN) << "Data Well Prepared!" << endlog;
                     client.pending_request.data->insert(
                         client.pending_request.data->end(),
                         client.buffer.begin(),
@@ -347,7 +363,8 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
                 cleanup_connection(fd);
             }else if(result != HandleResult::AlreadySend)send_message(fd,response);
         }else{
-            lg(LOG_INFO) << "Found nothing for the client" << endlog;
+            lg_acc(LOG_INFO) << "No handler for: " << 
+                client.pending_request.url.main_path() << endlog;
             send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
         }
     }

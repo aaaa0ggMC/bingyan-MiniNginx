@@ -68,6 +68,9 @@ namespace mnginx{
         /// initializes logger,no output target now
         Application();
 
+        /// flush data
+        ~Application();
+
         //// Setup Section ////
         /**
          * @brief the setup() function is divided into 4 below,

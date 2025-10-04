@@ -13,9 +13,25 @@ using namespace mnginx;
 uint64_t ClientInfo::max_client_id = 0;
 
 Application::Application():
-logger{LOG_SHOW_HEAD | LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},
-lg{"MiniNginx",logger},lge{"MiniNgnix",lgerr}{
+logger{LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},
+lg{"MiniNginx",logger},
+lgerr{LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},
+lge{"MiniNgnix",lgerr}{
     return_result = 0;
+}
+
+Application::~Application(){
+    logger.setLogOutputTargetStatus("console",false); 
+    lgerr.setLogOutputTargetStatus("console",false); 
+    lg(LOG_INFO) << "=== MiniNginx Access Log Ended ===" << endlog;
+    lge(LOG_INFO) << "=== MiniNginx Error Log Ended ===" << endlog;
+    logger.flush();
+    lgerr.flush();
+
+
+    logger.setLogOutputTargetStatus("file",false); 
+    logger.setLogOutputTargetStatus("console",true); 
+    lg(LOG_INFO) << "Application terminated" << endlog;
 }
 
 //// Setup Section ////
@@ -37,10 +53,18 @@ void Application::setup_general(){
 
 void Application::setup_config(){
     logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
+    lgerr.appendLogOutputTarget("console",std::make_shared<lot::Console>());
 }
 
 void Application::setup_logger(){
-    logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest.log",4 * 1024 * 1024));
+    logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest-acc.log",4 * 1024 * 1024));
+    lgerr.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest-err.log",4 * 1024 * 1024));
+    logger.setLogOutputTargetStatus("console",false); 
+    lgerr.setLogOutputTargetStatus("console",false); 
+    lg(LOG_INFO) << "=== MiniNginx Access Log Started ===" << endlog;
+    lge(LOG_INFO) << "=== MiniNginx Error Log Started ===" << endlog;
+    logger.setLogOutputTargetStatus("console",true); 
+    lgerr.setLogOutputTargetStatus("console",true);
 }
 
 void Application::setup_modules(){
@@ -71,7 +95,7 @@ void Application::setup_handlers(){
 }
 
 void Application::setup_servers(){
-    server = std::make_unique<Server>(lg,lg,handlers,mods);
+    server = std::make_unique<Server>(lg,lge,handlers,mods);
     server->setup();
 }
 
