@@ -1,3 +1,14 @@
+/**
+ * @file module_base.h
+ * @author aaaa0ggmc (lovelinux@yslwd.eu.org)
+ * @brief some essential things for a module
+ * @version 0.1
+ * @date 2025/10/04
+ * 
+ * @copyright Copyright(c)2025 aaaa0ggmc
+ * 
+ * @start-date 2025/10/04 
+ */
 #ifndef MN_MOD_BASE
 #define MN_MOD_BASE
 #include <client.h>
@@ -31,18 +42,23 @@ namespace mnginx::modules{
         { T::module_timer(elapsed_ms) } -> std::same_as<void>;
     };
 
+    /// server will copy this struct from application
     struct ModuleFuncs{
         /// before server actaully runs,call these init functions
         std::vector<ModuleInitFn> init;
         /// timed updates for some modules
         std::vector<ModuleTimerFn> timer;
     };
+
+    //// Default Policies ////
+    /// your module has init function
     struct PolicyInit{
         template<HasModuleInit T> inline static void bind(ModuleFuncs & f){
             f.init.push_back(T::module_init);
         }
     };
 
+    /// your module has timer function(will be called at a fixed rate)
     struct PolicyTimer{
         template<HasModuleTimer T> inline static void bind(ModuleFuncs & f){
            f.timer.push_back(T::module_timer);
@@ -51,6 +67,7 @@ namespace mnginx::modules{
 }
 
 // sus defines
+/// If you are lazy,use this
 #define PolicyFull mnginx::modules::PolicyInit,mnginx::modules::PolicyTimer
 
 #endif
