@@ -57,17 +57,16 @@ int Util::io_printColor(dstring message,const char * color){
 
 std::string Util::ot_getTime() {
     time_t rawtime;
-    struct tm *ptminfo;
     std::string rt = "";
     time(&rawtime);
-    ptminfo = localtime(&rawtime);
-    char * mdate = (char *)malloc(sizeof(char) * (512));
-    memset(mdate,0,sizeof(char) * (512));
+    struct tm ptminfo;
+    localtime_r(&rawtime, &ptminfo);
+    char mdate[512];
+    memset(mdate,0,512);
     sprintf(mdate,"%02d-%02d-%02d %02d:%02d:%02d",
-            ptminfo->tm_year + 1900, ptminfo->tm_mon + 1, ptminfo->tm_mday,
-            ptminfo->tm_hour, ptminfo->tm_min, ptminfo->tm_sec);
+            ptminfo.tm_year + 1900, ptminfo.tm_mon + 1, ptminfo.tm_mday,
+            ptminfo.tm_hour, ptminfo.tm_min, ptminfo.tm_sec);
     rt = mdate;
-    free(mdate);
     return rt;
 }
 
