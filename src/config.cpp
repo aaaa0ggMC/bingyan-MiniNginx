@@ -1,7 +1,6 @@
 #include <config.h>
 #include <fstream>
 #include <stack>
-#include <iostream>
 
 using namespace mnginx;
 

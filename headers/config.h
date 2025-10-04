@@ -7,7 +7,6 @@
 #include <string>
 #include <ranges>
 #include <string.h>
-#include <iostream>
 
 namespace mnginx{
     struct Config{

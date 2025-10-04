@@ -1,5 +1,4 @@
 #include <modules/reverse_proxy.h>
-#include <iostream>
 #include <fcntl.h>
 
 using namespace alib::g3;
@@ -42,7 +41,6 @@ int ReverseClient::connect_server(){
     if(connected)return 0;
     if(client_fd != -1)close(client_fd);
     client_fd = -1;
-    std::cout << "Created socket for" << reverse_fd<< std::endl;
     setup();
     buffer.clear();
     fcntl(client_fd,F_SETFL,fcntl(client_fd,F_GETFL,0) & ~O_NONBLOCK);

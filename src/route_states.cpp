@@ -1,5 +1,4 @@
 #include <route_states.h>
-#include <iostream>
 
 using namespace mnginx;
 
@@ -136,7 +135,6 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,
                         std::pmr::string & last = node_vals[node_vals.size()-1];
                         last.append("/");
                         last.append(main_path.begin(),main_path.end());
-                        std::cout << "child:" << last << std::endl;
                     }
                     return ParseResult::OK; // now we added the "suffix"
                 }else return ParseResult::Node404;

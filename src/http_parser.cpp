@@ -1,5 +1,4 @@
 #include <http_parser.h>
-#include <gtest/gtest.h>
 #include <alib-g3/aclock.h>
 
 using namespace mnginx;
@@ -188,7 +187,7 @@ void HTTPRequest::generate_to(std::pmr::vector<char> & rdata){
             vec.push_back('0' + num/10 % 10);
             vec.push_back('0' + num % 10);
         }else{
-            std::cout << "Well,you win" << std::endl;
+            // well you win
         }// status code < 1000
     };
 
@@ -295,7 +294,7 @@ void HTTPResponse::generate_to(std::pmr::vector<char>& rdata) const{
             vec.push_back('0' + num/10 % 10);
             vec.push_back('0' + num % 10);
         }else{
-            std::cout << "Well,you win" << std::endl;
+            // well you win
         }// status code < 1000
     };
 
@@ -332,7 +331,7 @@ void HTTPResponse::checkout_data(TransferMode mode){
         break;
     case TransferMode::Chunked:
         // @todo not supported now
-        std::cerr << "Chunked mode is not supported!" << std::endl;
+        // @todo LOG
         break;
     default:
         break;

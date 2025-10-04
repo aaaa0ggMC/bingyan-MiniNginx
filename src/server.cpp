@@ -1,7 +1,6 @@
 #include <server.h>
 #include <fcntl.h>
 #include <string.h>
-#include <iostream>
 
 using namespace mnginx;
 using namespace alib::g3;
@@ -267,7 +266,6 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
                 lg(LOG_ERROR) << "Transfer-Encoding mode "  << p->second <<  " is not supported." << std::endl;
                 return;
             }
-            std::cout << "Guys its time for chunked transfer" << std::endl;
             // chunked mode
             // read existing data
             while(true){

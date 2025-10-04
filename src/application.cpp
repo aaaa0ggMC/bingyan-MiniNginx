@@ -6,7 +6,6 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <stack>
-#include <iostream>
 #include <modules/reverse_proxy.h>
 
 using namespace mnginx;

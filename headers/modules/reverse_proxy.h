@@ -17,7 +17,6 @@
 #include <alib-g3/alogger.h>
 #include <epoll.h>
 #include <arpa/inet.h>
-#include <iostream>
 
 namespace mnginx::modules{
     /**
@@ -76,6 +75,8 @@ namespace mnginx::modules{
         std::pmr::unordered_map<int,ClientInfo> * server_clients;
         /// logger
         alib::g3::LogFactory * lg;
+        /// logger_err
+        alib::g3::LogFactory * lge;
 
         /// init module,must be static and use variable "proxy" to access data
         inline static void module_init(int server_fd,
@@ -85,7 +86,8 @@ namespace mnginx::modules{
                         alib::g3::LogFactory & lg_err){
             proxy.server_clients = &cl;
             proxy.lg = & lg_acc;
-            lg_acc(LOG_INFO) << "I initialized." << std::endl;
+            proxy.lge = & lg_err;
+            lg_acc(LOG_INFO) << "Module ReverseProxy Inited" << std::endl;
         }
 
         /// module timer,will be called at fixed rate,must be static
@@ -114,7 +116,6 @@ namespace mnginx::modules{
             std::erase_if(clients,[ids](const auto & item){
                 auto & [k,_] = item;
                 bool val = std::find(ids.begin(),ids.end(),k) == ids.end();
-                if(val)std::cout << "Removed unused." << std::endl;
                 return val;
             });
         }
