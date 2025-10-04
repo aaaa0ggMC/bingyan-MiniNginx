@@ -15,13 +15,14 @@ uint64_t ClientInfo::max_client_id = 0;
 
 Application::Application():
 logger{LOG_SHOW_HEAD | LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},
-lg{"MiniNginx",logger}{
+lg{"MiniNginx",logger},lge{"MiniNgnix",lgerr}{
     return_result = 0;
 }
 
 //// Setup Section ////
 void Application::setup(){
     setup_general();
+    setup_config();
     setup_logger();
     setup_modules();
     setup_handlers();
@@ -32,11 +33,15 @@ void Application::setup_general(){
     // Initialize cpp pmr resource pool,note that I'm not very familiar with it
     // I just know how to use
     std::pmr::set_default_resource(&pool);
+    // create logger console target
+}
+
+void Application::setup_config(){
+    logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
 }
 
 void Application::setup_logger(){
     logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest.log",4 * 1024 * 1024));
-    logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
 }
 
 void Application::setup_modules(){

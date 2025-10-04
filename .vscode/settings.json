@@ -82,6 +82,7 @@
         "core": "cpp",
         "coroutine": "cpp",
         "print": "cpp",
-        "*.def": "cpp"
+        "*.def": "cpp",
+        "mutex": "cpp"
     }
 }

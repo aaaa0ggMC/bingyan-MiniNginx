@@ -18,6 +18,7 @@
 #include <client.h>
 #include <server.h>
 #include <epoll.h>
+#include <config.h>
 
 // Since my library is verbose,so here I globally use the namespace
 using namespace alib::g3;
@@ -37,6 +38,8 @@ namespace mnginx{
         //// Log System
         Logger logger; ///< access logger
         LogFactory lg; ///< the log factory of access logger
+        Logger lgerr; ///< error logger
+        LogFactory lge; ///< the log factory of error logger
         
         //// Memory Management
         /// memory pool that takes advantages of huge memory block
@@ -55,6 +58,9 @@ namespace mnginx{
 
         /// modules
         modules::ModuleFuncs mods;
+
+        /// config system
+        Config config;
     public:
         /// used in main() to return,initially 0
         int return_result; 
@@ -72,6 +78,8 @@ namespace mnginx{
         ///// Sub-procedures of setup ////
         /// PMR pools .etc.
         void setup_general();
+        /// Configs
+        void setup_config();
         /// Initialize the output target of the logger
         void setup_logger();
         /// Initialize modules,which is handler + thread local data

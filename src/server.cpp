@@ -344,9 +344,10 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
             response.reset();
             auto result = fn(HandlerContext(fd,client.pending_request,vals,response,client,mapper));
             if(result == HandleResult::Close){
+                // @todo add more detailed information instead of a NOT FOUND
+                send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
                 cleanup_connection(fd);
             }else if(result != HandleResult::AlreadySend)send_message(fd,response);
-
         }else{
             lg(LOG_INFO) << "Found nothing for the client" << endlog;
             send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
@@ -354,7 +355,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
     }
 }
 
-size_t Server::send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str){
+ssize_t Server::send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str){
     thread_local static HTTPResponse resp;
     resp.version.major = 1;
     resp.version.minor = 1;
@@ -366,10 +367,10 @@ size_t Server::send_message_simp(int fd,HTTPResponse::StatusCode code,std::strin
     return send_message(fd,resp);
 }
 
-size_t Server::send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMode mode){
+ssize_t Server::send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMode mode){
     // auto checkout
     static thread_local std::pmr::vector<char> data;
     resp.checkout_data(mode);
     resp.generate_to(data);
-    return send(fd,data.data(),data.size(),0);
+    return send(fd,data.data(),data.size(),MSG_NOSIGNAL);
 }

@@ -50,7 +50,7 @@ namespace mnginx::modules{
         int connect_server();
 
         /// send data to server
-        void send_data(const std::pmr::vector<char> & data);
+        int send_data(const std::pmr::vector<char> & data);
 
         /// recieve data from server and proxy it
         HandleResult reverse_proxy();

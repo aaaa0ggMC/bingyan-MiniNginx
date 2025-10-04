@@ -83,9 +83,9 @@ namespace mnginx{
 
         /// send code and status string to the client
         /// note that code must lower than 1000
-        size_t send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str);
+        ssize_t send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str);
         /// send a http response to the client
-        size_t send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMode = HTTPResponse::TransferMode::ContentLength);
+        ssize_t send_message(int fd,HTTPResponse & resp,HTTPResponse::TransferMode = HTTPResponse::TransferMode::ContentLength);
     };
 } // namespace mnginx
 #endif

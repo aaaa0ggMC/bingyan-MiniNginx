@@ -16,7 +16,8 @@ HandleResult ModReverseProxy::handle(HandlerContext ctx){
     ctx.request.headers["X-Forwarded-Host"] = "localhost:9191";
     auto& client = proxy.clients.try_emplace(ctx.client.client_id,ReverseClient(ctx.fd)).first->second;
     
-    client.send_data(ctx.request.generate());
+    if(client.send_data(ctx.request.generate()) < 0)return HandleResult::Close;
+
     return client.reverse_proxy();
 }
 
@@ -32,9 +33,9 @@ int ReverseClient::setup(){
     return 0;
 }
 
-void ReverseClient::send_data(const std::pmr::vector<char> & data){
-    connect_server();
-    send(client_fd,data.data(),data.size(),0);
+int ReverseClient::send_data(const std::pmr::vector<char> & data){
+    if(connect_server() != 0)return -1;
+    return send(client_fd,data.data(),data.size(),0);
 }
 
 int ReverseClient::connect_server(){
@@ -55,19 +56,22 @@ int ReverseClient::connect_server(){
 }
 
 HandleResult ReverseClient::reverse_proxy(){
-    connect_server(); // if client was closed,this wont reconnect
+    if(connect_server() < 0)return HandleResult::Close; // if client was closed,this wont reconnect
     char buf[1024] = {0};
 
     while(true){
         int ret = read(client_fd,buf,1024);
         if(ret > 0){
-            std::cout << "reverse proxied" << std::endl;
-            send(reverse_fd,buf,ret,0);
+            if(send(reverse_fd,buf,ret,MSG_NOSIGNAL) < 0){
+                return HandleResult::Close;
+            }
         }else if(ret == 0){ // connection was closed
             return HandleResult::Close; // close the connection with the client
         }else if(ret < 0 && (errno == EAGAIN || errno == EWOULDBLOCK)){
             break;
-        }else return HandleResult::Close;
+        }else{
+            return HandleResult::Close;
+        }
     }
     return HandleResult::AlreadySend;
 }
