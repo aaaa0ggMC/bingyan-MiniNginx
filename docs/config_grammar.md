@@ -30,3 +30,52 @@ server {
 
 ## Some Features
 All values can be wrapped with ",so if you want to input ",use \"
+
+## Valid Examples
+### 1 [2025/10/05]
+```nginx
+server {
+  # note that comments must end with "\";\"" ;
+  # or some sections may not be recognized ; 
+  # the name of the server ;
+  actually "\"#\"" is not that essential ;
+  # but it looks nice ;
+  # well you ask me why this system sucks? ;
+  # bro,the code of this system is just about 200 lines ;
+
+  server_name localhost;
+  
+  # port to listen ;
+  listen 9191;
+  
+  # backlog size ;
+  backlog 1024;
+
+  # epoll settings ;
+  epoll {
+    event_list_size 1024;
+    wait_interval 10 ms;
+    module_least_wait 5 ms;
+  };
+
+  location "/api/v1/{path}" {
+    type proxy;
+   
+    target {
+      name 127.0.0.1;
+      port 7000;
+    };
+    
+  };
+
+  location "api/v2/{path}" {
+    type proxy;
+
+    target {
+      name 127.0.0.1;
+      port 7000;
+    };
+  };
+}
+```
+

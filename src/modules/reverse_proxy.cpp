@@ -60,7 +60,7 @@ int ReverseClient::connect_server(){
 
 HandleResult ReverseClient::reverse_proxy(){
     if(connect_server() < 0)return HandleResult::Close; // if client was closed,this wont reconnect
-    char buf[mode_reverse_proxy_buffer_size] = {0};
+    char buf[mod_reverse_proxy_buffer_size] = {0};
 
     while(true){
         int ret = read(client_fd,buf,sizeof(buf));
