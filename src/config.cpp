@@ -145,7 +145,7 @@ Config::LoadResult Config::analyse_words(std::vector<std::string> & tokens){
     return LoadResult::OK;
 }
 
-std::optional<std::reference_wrapper<Config::Node>> Config::Node::get_node_recursive(const std::vector<std::string_view> & location,unsigned int expected_index){
+std::optional<std::reference_wrapper<Config::Node>> Config::Node::get_node_recursive(const std::vector<std::string_view> & location,size_t expected_index){
     Node * current = this;
     size_t i = 0,cmp_index = 0;
     size_t founded = 0;

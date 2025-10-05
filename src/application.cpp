@@ -67,13 +67,6 @@ void Application::setup_logger(){
     lgerr.setLogOutputTargetStatus("console",true);
 }
 
-void Application::setup_modules(){
-    using namespace modules;
-    StateNode root;
-    root.node(HandlerRule::Match_Any);
-    add_module<ModReverseProxy,policies<PolicyFull>>(root);
-}
-
 void Application::setup_handlers(){
     StateNode file;
     file.node("handler");

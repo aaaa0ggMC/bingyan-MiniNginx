@@ -19,16 +19,40 @@
 #include <arpa/inet.h>
 
 namespace mnginx::modules{
+    constexpr int mode_reverse_proxy_buffer_size = 1024;
+    
+    struct ReverseClientConfig{
+        sockaddr_in target;
+        
+        bool modified;
+
+        void reset(){
+            modified = false;
+            target.sin_family = AF_INET;
+            target.sin_port = htons(7000);
+            inet_pton(AF_INET,"127.0.0.1",&target.sin_addr);
+        }
+
+        inline void modify(){
+            modified = true;
+        }
+
+        inline ReverseClientConfig(){
+            reset();
+        }
+    };
+
     /**
      * @brief clients held by module to connect the final server
      * @start-date 2025/10/04
      */
     struct ReverseClient{
+
         int client_fd; ///< the connection fd between final server and foward sever
-        struct sockaddr_in server_addr; ///< address of final server
         std::pmr::vector<char> buffer; ///< the cached buffer between final server and forward server
         bool connected; ///< check whether reverse client is connected
         int reverse_fd; ///< the client to send
+        ReverseClientConfig config; ///< reverse client config
 
         /// constructor,receives the fd to send proxied data to
         inline ReverseClient(int fd){
@@ -121,7 +145,7 @@ namespace mnginx::modules{
         }
 
         /// Main function,will be called when route matches
-        static HandleResult handle(HandlerContext ctx);
+        static HandleResult handle(HandlerContext ctx,const ReverseClientConfig & cfg);
     };
 }
 #endif

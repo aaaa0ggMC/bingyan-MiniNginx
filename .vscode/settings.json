@@ -84,6 +84,8 @@
         "print": "cpp",
         "*.def": "cpp",
         "mutex": "cpp",
-        "any": "cpp"
+        "any": "cpp",
+        "future": "cpp",
+        "variant": "cpp"
     }
 }

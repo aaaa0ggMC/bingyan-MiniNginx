@@ -127,6 +127,10 @@ namespace mnginx{
             return *next;
         }
 
+        /// parse a node list from string
+        /// eg. /api/v1/{id}/{id2}, use \{ \} to enter real '{' and '}'
+        int parse_from_str(std::string_view str);
+
         /// next node
         std::unique_ptr<StateNode> next;
     };

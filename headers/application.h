@@ -111,7 +111,7 @@ namespace mnginx{
             }else{
                 return handlers.add_new_handler(tree,
                 [args...](HandlerContext ctx){
-                    T::handle(ctx,args...);
+                    return T::handle(ctx,args...);
                 }); 
             }
         }

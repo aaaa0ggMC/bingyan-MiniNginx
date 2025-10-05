@@ -10,12 +10,19 @@ int URL::parse_raw_url(std::string_view raw){
         else if(ch <= 0x1F || ch == 0x7F || ch > 0xFF)return false;
         else return true;
     };
+    // @todo search and add errors
     int64_t pos = (int64_t)raw.find("?");
     if(pos == std::string_view::npos)pos = -1;
     int64_t original = pos;
 
     // assign raw path data
-    raw_path_ = raw;
+    if(raw.empty()){
+        raw_path_ = "/";
+    }else{
+        if(raw[0] != '/')raw_path_ = "/";
+        else raw_path_ = "";
+        raw_path_ += raw;
+    }
     // parse characters and find the first "?"
     full_path_.clear();
     full_path_.reserve(raw.size()+1);

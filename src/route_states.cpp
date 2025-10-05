@@ -149,3 +149,68 @@ StateTree::ParseResult StateTree::parseURL(std::string_view main_path,
 
     return ParseResult::OK;
 }
+
+static std::pmr::string remove_unescapes(std::string_view data){
+    bool escape = false;
+    std::pmr::string ret;
+    for(auto ch : data){
+        if(ch == '\\'){
+            if(escape){
+                ret.push_back('\\');
+            }else escape = true;
+        }else if(escape){
+            escape = false;
+            ret.push_back(ch);
+        }else ret.push_back(ch);
+    }
+    if(escape){
+        ret.push_back('\\');
+    }
+    return ret;
+}
+
+int StateNode::parse_from_str(std::string_view str){
+    if(str.empty())return -1;
+    if(str[0] == '/')str = std::string_view(str.begin()+1,str.end());
+    StateNode * current = this;
+    std::string_view section = "";
+    while(!str.empty()){
+        size_t pos = 0;
+        pos = str.find("/");
+        if(pos != str.npos){
+            section = std::string_view(str.begin(),str.begin() + pos);
+            str = std::string_view(str.begin() + pos + 1,str.end());
+        }else{
+            section = str;
+            str = "";
+        }
+        if(section == ""){
+            return -2; // has something like this: /api// (// is forbidden)
+        }
+        current->empty = false;
+        if(section.size() >= 2 && section[0] == '{' && section[section.size()-1] == '}'){
+            current->rule = HandlerRule::Match_Any;
+            current->data_str = "";
+            size_t prev_index,aft_index;
+            for(prev_index = 1;prev_index < section.size();++prev_index){
+                if(!isspace(section[prev_index]))break;
+            }
+            for(aft_index = section.size()-2;aft_index > 0;--aft_index){
+                if(!isspace(section[aft_index]))break;
+            }
+            current->id = remove_unescapes(std::string_view(section.begin() + prev_index,
+                section.begin() + aft_index + 1));
+            //std::cout << "read {ANY} :" << current->id << std::endl;
+        }else{
+            current->rule = HandlerRule::FixedString;
+            current->data_str = remove_unescapes(section);
+            current->id = "";
+            //std::cout << "read {FIXED} :" << current->data_str << std::endl;
+        }
+        current->next = std::make_unique<StateNode>();
+        current = current->next.get();
+    }
+    // make sure the last one is valid
+    current->next = std::make_unique<StateNode>();
+    return 0;
+}
