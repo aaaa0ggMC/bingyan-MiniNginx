@@ -25,9 +25,7 @@ using namespace alib::g3;
 
 namespace mnginx{
     template<typename T>
-    concept HasModuleHandler = requires(T mod,HandlerContext ctx) {
-        { T::handle(ctx) } -> std::same_as<HandleResult>;
-    };
+        concept HasModuleHandler = requires {T::handle;};
 
     /**
      * @brief The main entry of MiniNginx
@@ -100,13 +98,22 @@ namespace mnginx{
         void run();
 
         //// Moudle Register Functions ////
-        template<HasModuleHandler T,class Policy,class... Policies> inline StateTree::AddResult add_module(const StateNode & tree){
-            Policy::template bind<T>(mods);
-            return add_module<T,Policies...>(tree);
-        }
+        template<HasModuleHandler T,class PoliciesPack,class... Args> 
+        inline StateTree::AddResult add_module(const StateNode & tree,Args&&... args){
+            // unpack policies and apply policies
+            [this]<class... Ts>(modules::policies<Ts...> *){
+                ( Ts::template bind<T>(this->mods) , ...);
+            }((PoliciesPack*)nullptr);
 
-        template<HasModuleHandler T> inline StateTree::AddResult add_module(const StateNode & tree){
-            return handlers.add_new_handler(tree,T::handle);
+            if constexpr(sizeof...(Args) == 0){
+                return handlers.add_new_handler(tree,
+                T::handle);
+            }else{
+                return handlers.add_new_handler(tree,
+                [args...](HandlerContext ctx){
+                    T::handle(ctx,args...);
+                }); 
+            }
         }
     };
 

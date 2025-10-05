@@ -64,6 +64,9 @@ namespace mnginx::modules{
            f.timer.push_back(T::module_timer);
         }
     };
+
+    // used to unpack packages
+    template<class... Ts> struct policies{}; 
 }
 
 // sus defines

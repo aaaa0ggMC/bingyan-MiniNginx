@@ -71,7 +71,7 @@ void Application::setup_modules(){
     using namespace modules;
     StateNode root;
     root.node(HandlerRule::Match_Any);
-    add_module<ModReverseProxy,PolicyFull>(root);
+    add_module<ModReverseProxy,policies<PolicyFull>>(root);
 }
 
 void Application::setup_handlers(){
