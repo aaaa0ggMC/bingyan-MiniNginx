@@ -23,6 +23,7 @@
       - [高并发 (也许Flask是瓶颈)](#高并发-也许flask是瓶颈)
       - [优化后的并发测试 (并发数目Flask能接受)](#优化后的并发测试-并发数目flask能接受)
       - [静态文件代理](#静态文件代理)
+  - [开发博客](#开发博客)
   - [文档](#文档)
   - [依赖](#依赖)
   - [构建](#构建)
@@ -186,6 +187,9 @@ wrk -t24 -c1000 -d8s http://localhost:9191/file/lets_chat.c
 | 流量 | 6.77MB/s |
 | 读取错误 | 48 |
 | 返回404/403 | 24 |
+
+## 开发博客
+[DevBlog:Mininginx = 1](https://aaaa0ggmc.github.io/Blog/keep_learning/c_cpp/devlog_mininginx.html)
 
 ## 文档
 [Mingnix文档](https://aaaa0ggmc.github.io/bingyan-MiniNginx/MiniNginx/)

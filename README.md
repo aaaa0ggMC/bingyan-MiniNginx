@@ -24,6 +24,7 @@ English / [简体中文](./README_cn.md)
       - [Optimal Concurrency Test (Matching Flask Capacity)](#optimal-concurrency-test-matching-flask-capacity)
       - [File Proxy](#file-proxy)
   - [Dependencies](#dependencies)
+  - [DevBlog](#devblog)
   - [Docs](#docs)
   - [Building](#building)
     - [Step1: clone this repo](#step1-clone-this-repo)
@@ -194,6 +195,9 @@ wrk -t24 -c1000 -d8s http://localhost:9191/file/lets_chat.c
 - C++ (GCC or Clang or what ever)
   - The compiler you choose must support -std=c++26
 - Google Test
+
+## DevBlog
+[DevBlog:Mininginx = 1](https://aaaa0ggmc.github.io/Blog/keep_learning/c_cpp/devlog_mininginx.html)
 
 ## Docs
 see [MiniNgnix doc](https://aaaa0ggmc.github.io/bingyan-MiniNginx/MiniNginx/)
