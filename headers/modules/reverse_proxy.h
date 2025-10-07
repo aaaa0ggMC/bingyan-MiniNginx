@@ -19,12 +19,8 @@
 #include <arpa/inet.h>
 
 namespace mnginx::modules{
-<<<<<<< Updated upstream
-    constexpr int mode_reverse_proxy_buffer_size = 1024;
-=======
     constexpr int mod_reverse_proxy_buffer_size = 1024;
     constexpr double mod_reverse_proxy_elapse_time = 10;
->>>>>>> Stashed changes
     
     struct ReverseClientConfig{
         sockaddr_in target;
