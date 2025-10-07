@@ -15,6 +15,7 @@
 #include <sys/epoll.h>
 #include <vector>
 #include <ranges>
+#include <unistd.h>
 
 namespace mnginx{
     /**

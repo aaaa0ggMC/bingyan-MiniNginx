@@ -12,6 +12,7 @@
 #ifndef MN_CLIENT
 #define MN_CLIENT
 #include <http_parser.h>
+#include <alib-g3/aclock.h>
 
 namespace mnginx{
     /**
@@ -19,6 +20,9 @@ namespace mnginx{
      * @start-date 2025/10/02
      */
     struct ClientInfo{
+        /// idle time counter
+        static alib::g3::Clock global_clock;
+
         /// the buffer to store data coming from client
         std::pmr::vector<char> buffer;
         /// the cached value used to reduce the characters need searching
@@ -30,6 +34,8 @@ namespace mnginx{
         bool pending; 
         /// client id
         uint64_t client_id;
+        /// last time
+        double last_active_ms;
 
         /// current max id to keep client unique
         static uint64_t max_client_id;
@@ -38,7 +44,12 @@ namespace mnginx{
         inline ClientInfo(){
             find_last_pos = 0;
             client_id = ++max_client_id;
+            last_active_ms = 0;
             pending = false;
+        }
+
+        inline void active(){
+            last_active_ms = global_clock.now().all;
         }
     };
 } // namespace mnginx

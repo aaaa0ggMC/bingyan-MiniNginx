@@ -7,6 +7,7 @@
 #include <fcntl.h>
 #include <stack>
 #include <modules/reverse_proxy.h>
+#include <modules/file_proxy.h>
 #include <socket_util.h>
 
 using namespace mnginx;
@@ -48,7 +49,7 @@ void Application::setup_modules(){
             modules::ReverseClientConfig cfg;
             cfg.target.sin_family = AF_INET;
             // load server name
-            auto str = node.get_node_recursive_value({"server","target"});
+            auto str = node.get_node_recursive_value({"target","name"});
             if(str && !str->empty()){
                 auto [ip_addr, error_msg] = mnginx::Util::get_s_addr_with_error(*str);
                 if(ip_addr == INADDR_NONE){
@@ -59,7 +60,7 @@ void Application::setup_modules(){
                 }
             }
             // load port
-            auto vport = node.get_node_recursive_value({"server","port"});
+            auto vport = node.get_node_recursive_value({"target","port"});
             if(vport && !vport->empty()){
                 char * endptr;
                 long port = strtol(vport->data(),&endptr,10);
@@ -77,7 +78,20 @@ void Application::setup_modules(){
                 << ":" << ntohs(cfg.target.sin_port) << " with route \"" << 
                 *path << "\"" << endlog; 
         }else if(*type == "file"){
-            lge(LOG_ERROR) << "Currently file mode is not supported!" << endlog;
+            FileProxyConfig cfg;
+            auto croot = node.get_node_recursive_value({"root"});
+            if(croot){
+                cfg.root = *croot;
+            }
+            auto index = node.get_node_recursive_value({"index"});
+            if(index){
+                cfg.defval = *index;
+            }
+
+            add_module<ModFileProxy,policies<PolicyInit>>(root,cfg);
+        
+            lg(LOG_INFO) << "Proxy file to " << cfg.root << " with index " 
+                << cfg.defval << " and route \"" << *path << "\"" << endlog;
         }else{
             lge(LOG_WARN) << "Node with path \"" << *path  
                 << "\" has bad type signature:" << *type << endlog;

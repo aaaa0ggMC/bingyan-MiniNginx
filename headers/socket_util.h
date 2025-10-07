@@ -19,7 +19,25 @@
 
 #include <cmath>
 
+// yes,now you can use the go grammar
+#define CAT(a,b) a##b
+#define CAT_2(a,b) CAT(a,b)
+#define defer defer_t CAT_2(defer,__COUNTER__) = [&] noexcept   
+
 namespace mnginx{
+
+    template<class T> struct defer_t{
+        T defer_func;
+        inline defer_t(T functor):defer_func(std::move(functor)){}
+        inline ~defer_t() noexcept{defer_func();}
+
+        defer_t(const defer_t &) = delete;
+        defer_t(defer_t &&) = delete;
+
+        defer_t& operator=(const defer_t&) = delete;
+        defer_t& operator=(defer_t&&) = delete;
+    };
+
     struct Util{
         /// clamp the backlog count to the system's maximum if requested is too large
         static inline int safe_back_log(int requested){

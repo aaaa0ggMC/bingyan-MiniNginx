@@ -6,6 +6,10 @@
 using namespace mnginx;
 using namespace alib::g3;
 
+int64_t Server::server_id_max = 0;
+std::mutex Server::accept_lock;
+alib::g3::Clock ClientInfo::global_clock;
+
 void Server::setup(){
     int len = sizeof(config.address);
 
@@ -19,6 +23,9 @@ void Server::setup(){
     if(Util::set_reuse_addr(server_fd) < 0){
         lg_err(LOG_WARN) << "Failed to set SO_REUSEADDR: " << strerror(errno) << endlog;
     }
+    // for more threads
+    int opt = 1;
+    setsockopt(server_fd,SOL_SOCKET,SO_REUSEPORT,&opt, sizeof(opt));
 
     if(bind(server_fd,(sockaddr*)&config.address,sizeof(config.address)) == -1){
         lg_err(LOG_CRITI) << "Cannot bind the port " << ntohs(config.address.sin_port) << " for the server:" << strerror(errno) << endlog;
@@ -39,7 +46,7 @@ void Server::setup(){
     epoll.add(server_fd,EPOLLIN); // care about read ==> client connections,no EPOLLET,this will damage the connection
 
     /// all set,now let's wait for client in the run function 
-    lg_acc(LOG_INFO) << "Server listening on " << 
+    lg_acc(LOG_INFO) << "Server#" << server_id << " listening on " << 
     mnginx::Util::ip_to_str(config.address.sin_addr.s_addr) << ":" << 
     ntohs(config.address.sin_port) << endlog;
 }
@@ -49,8 +56,10 @@ void Server::run(){
     for(auto & fn : mods.init){
         if(fn)fn(server_fd,epoll,establishedClients,lg_acc,lg_err);
     }
+    clk.start();
     Clock timer;
-    while(true){
+    running = true;
+    while(running){
         auto [ok,ev_view] = epoll.wait(config.epoll_wait_interval_ms);
         if(ok){
             if(ev_view.size()){
@@ -75,6 +84,22 @@ void Server::run(){
             }
             timer.clearOffset();
         }
+        // check clients
+        if(ping_trigger.test()){
+            ping_trigger.reset();
+            std::vector<uint64_t> clear_fds;
+            for(auto& [k,v] : establishedClients){
+                if(v.global_clock.now().offset - v.last_active_ms >= mnginx_ping_time_ms){
+                    int ret = send(k,ping_data.data(),ping_data.size(),MSG_NOSIGNAL);
+                    if(ret < 0 && (errno != EINTR && errno != EWOULDBLOCK && errno != EAGAIN)){
+                        clear_fds.push_back(k);
+                    }else v.active();
+                }
+            }
+            for(uint64_t fd : clear_fds){
+                cleanup_connection(fd);
+            }
+        }
     }
 }
 
@@ -83,10 +108,16 @@ void Server::close_server(){
     server_fd = -1;
 }
 
+void Server::stop_server(){
+    running = false;
+}
+
 void Server::accept_connections(){
     int client_fd = -1;
     struct sockaddr_in client_info;
     int sizelen = sizeof(sockaddr_in);
+
+    std::lock_guard<std::mutex> lockg(accept_lock);
     while(true){
         if((client_fd = accept(server_fd,(sockaddr*)&client_info,(socklen_t*)&sizelen)) == -1){
             if(errno == EAGAIN || errno == EWOULDBLOCK){
@@ -342,14 +373,15 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
 
         vals.clear();
         mapper.clear();
-
+        
         auto result = handlers.parseURL(client.pending_request.url.main_path(),fn,vals,mapper);
         if(result == StateTree::ParseResult::OK){
             response.reset();
             auto result = fn(HandlerContext(fd,client.pending_request,vals,response,client,mapper));
             if(result == HandleResult::Close){
+                if(response.status_code != HTTPResponse::StatusCode::OK) send_message(fd,response);
+                else send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
                 // @todo add more detailed information instead of a NOT FOUND
-                send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
                 cleanup_connection(fd);
             }else if(result != HandleResult::AlreadySend)send_message(fd,response);
         }else{
@@ -358,6 +390,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
             send_message_simp(fd,HTTPResponse::StatusCode::NotFound,"Not Found!");
         }
     }
+    client.active();
 }
 
 ssize_t Server::send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str){
