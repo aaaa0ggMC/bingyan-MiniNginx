@@ -28,6 +28,7 @@
   - [构建](#构建)
     - [第一步：克隆我的仓库](#第一步克隆我的仓库)
     - [第二步： 运行脚本](#第二步-运行脚本)
+  - [写在最后](#写在最后)
   - [开源协议](#开源协议)
   
 
@@ -211,6 +212,14 @@ bash ./scripts/build
 ```
 生成的可执行文件在 ./CBuild/这个文件夹里面
 
+## 写在最后
+挺好的，与其说是实习项目不如说是一次有目标的锻炼，成功让我在7天内从仅仅了解TCP/UDP是什么的人大致了解了更加复杂的网络处理，也算是让我网络方面的水平进了一步了。同时这也让我能更加熟悉自己开发的节奏，懂得什么时候进行codereview以及什么时候摸鱼啥的，更重要的是这次项目还让我对于软件架构的处理更加娴熟了，就比如目前我的MiniNginx就是完全可拓展的形态，无论是配置文件还是Module，我的热插拔设计也让我开发多线程和配置热加载十分顺利。不过我累了（其实是近几天看王者解说视频有点小上瘾），所以留了个负载均衡没细做，不过难度应该不会太大，简易版本的话直接均分给负载服务器，复杂一点可能就要复杂服务器配合或者是定期发送心跳包查看延迟来判断啥的，反正也不简单。 <br/>
+Anyway, <br/>
+<p align='right'>
+Cheers! <br/>
+2025/10/07
+</p>
+
 ## 开源协议
 <pre>
 MIT License
@@ -235,5 +244,4 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 </pre>
-
 

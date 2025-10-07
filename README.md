@@ -28,6 +28,10 @@ English / [简体中文](./README_cn.md)
   - [Building](#building)
     - [Step1: clone this repo](#step1-clone-this-repo)
     - [Step2: run scripts](#step2-run-scripts)
+  - [Final Thoughts (Translated from 写在最后 by DeepSeek)](#final-thoughts-translated-from-写在最后-by-deepseek)
+    - [🚀 Technical Growth](#-technical-growth)
+    - [🏗 Engineering Skills Enhancement](#-engineering-skills-enhancement)
+    - [🎯 Project Achievements](#-project-achievements)
   - [License](#license)
   
 
@@ -210,6 +214,24 @@ bash ./scripts/configure
 bash ./scripts/build
 ```
 build results are stored in ./CBuild/
+
+## Final Thoughts (Translated from [写在最后](./README_cn.md#写在最后) by DeepSeek)
+This project has been more than just an internship assignment—it was a targeted technical deep dive that yielded significant growth.
+### 🚀 Technical Growth
+- Progressed from basic TCP/UDP knowledge to mastering complete network programming architecture
+- Gained deep understanding of core concepts including Epoll, multi-process models, and HTTP protocol
+- Achieved substantial advancement in network programming capabilities
+### 🏗 Engineering Skills Enhancement
+- Mastered modular, extensible software architecture design
+- Implemented hot-pluggable designs that streamlined multi-threading and hot-reload development
+- Improved proficiency in code review and development rhythm management
+### 🎯 Project Achievements
+The current MiniNginx boasts comprehensive production-ready features with an architecture designed for future extensibility. While the load balancing functionality awaits further implementation due to time constraints, the foundational framework is firmly in place.
+**In summary, this has been an immensely rewarding technical journey!**
+<p align='right'>
+Cheers!<br/>
+2025/10/07
+</p>
 
 ## License
 <pre>
