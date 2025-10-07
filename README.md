@@ -110,8 +110,9 @@ server {
 # which is expected to receive <h1>HelloWorld</h1>nihao
 wrk -t24 -c1000 -d8s http://localhost:9191/handler/nihao 
 ```
+
 | Property | Value |
-| :======: | :===: |
+| :-------: | :-------: |
 | QPS | 11,589.64 |
 | Avg.Latency | 83.06ms |
 | Max.Latency | 192.68ms |
@@ -126,7 +127,7 @@ The route tree cant found related handler to the path,mnginx returns 404 immedia
 wrk -t24 -c1000 -d8s http://localhost:9191/handlers/nihao  # /handlers/{any} doesnt exist! 
 ```
 | Property | Value |
-| :======: | :===: |
+| :-------: | :-------: |
 | QPS | 32,174.03 |
 | Avg.Latency | 30.49ms |
 | Max.Latency | 99.36ms |
@@ -147,7 +148,7 @@ Performance Analysis: The reverse proxy shows excellent performance when concurr
 wrk -t1 -c1000 -d8s http://localhost:9191/api/v1/
 ```
 | Property | Value |
-| :======: | :===: |
+| :-------: | :-------: |
 | QPS | 83.72 |
 | Avg.Latency | 1.07s |
 | Max.Latency | 1.08s |
@@ -162,7 +163,7 @@ wrk -t1 -c1000 -d8s http://localhost:9191/api/v1/
 wrk -t1 -c32 -d8s http://localhost:9191/api/v1/
 ```
 | Property | Value |
-| :======: | :===: |
+| :-------: | :-------: |
 | QPS | 2,559.75 |
 | Avg.Latency | 11.99ms |
 | Max.Latency | 55.04ms |
@@ -177,7 +178,7 @@ No file caching support currently,which means that 24 threads(24,000 connections
 wrk -t24 -c1000 -d8s http://localhost:9191/file/lets_chat.c
 ```
 | Property | Value |
-| :======: | :===: |
+| :-------: | :-------: |
 | QPS | 3,172.12 |
 | Avg.Latency | 40.59ms |
 | Total Requests | 25,689 |
