@@ -44,7 +44,7 @@ namespace mnginx{
         int fd; ///< file descriptor
         HTTPRequest & request; ///< incoming request,= client_info.pending_request
         std::pmr::vector<std::pmr::string>& vals; ///< path vals
-        HTTPResponse& response; ///< output
+        HTTPResponse& response; ///< output,it has been reset before
         ClientInfo & client; ///< something about the client
         /// map id to the index in val,string_view refers to data stored in StateTree,so it's safe usually
         std::pmr::unordered_map<std::string_view,int>& mapper; 

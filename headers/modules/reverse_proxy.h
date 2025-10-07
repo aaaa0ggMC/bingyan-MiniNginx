@@ -19,8 +19,12 @@
 #include <arpa/inet.h>
 
 namespace mnginx::modules{
+<<<<<<< Updated upstream
+    constexpr int mode_reverse_proxy_buffer_size = 1024;
+=======
     constexpr int mod_reverse_proxy_buffer_size = 1024;
-    constexpr double mod_reverse_proxy_elapse_time = 4000;
+    constexpr double mod_reverse_proxy_elapse_time = 10;
+>>>>>>> Stashed changes
     
     struct ReverseClientConfig{
         sockaddr_in target;
@@ -102,8 +106,6 @@ namespace mnginx::modules{
         alib::g3::LogFactory * lg;
         /// logger_err
         alib::g3::LogFactory * lge;
-        /// elapse time
-        double elapsed_time;
 
         /// init module,must be static and use variable "proxy" to access data
         inline static void module_init(int server_fd,
@@ -114,16 +116,11 @@ namespace mnginx::modules{
             proxy.server_clients = &cl;
             proxy.lg = & lg_acc;
             proxy.lge = & lg_err;
-            proxy.elapsed_time = 0;
             lg_acc(LOG_INFO) << "Module ReverseProxy Inited" << std::endl;
         }
 
         /// module timer,will be called at fixed rate,must be static
         inline static void module_timer(double elap_ms){
-            proxy.elapsed_time += elap_ms;
-            if(proxy.elapsed_time < mod_reverse_proxy_elapse_time)return;
-            proxy.elapsed_time = 0;
-            
             proxy.clear_unused_connections();
             for(auto & [k,v] : proxy.clients){
                 v.reverse_proxy();

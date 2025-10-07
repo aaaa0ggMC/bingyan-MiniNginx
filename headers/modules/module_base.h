@@ -46,22 +46,35 @@ namespace mnginx::modules{
     struct ModuleFuncs{
         /// before server actaully runs,call these init functions
         std::vector<ModuleInitFn> init;
+        /// used to skip existing funcs
+        std::vector<int64_t> registered_inits;
         /// timed updates for some modules
         std::vector<ModuleTimerFn> timer;
+        /// used to skip existing funcs
+        std::vector<int64_t> registered_timers;
     };
 
     //// Default Policies ////
     /// your module has init function
     struct PolicyInit{
         template<HasModuleInit T> inline static void bind(ModuleFuncs & f){
-            f.init.push_back(T::module_init);
+            // why take address?? 'cause it's compatible with static functions and static functors
+            if(std::find(f.registered_inits.begin(),f.registered_inits.end(),(int64_t)&T::module_init)
+                == f.registered_inits.end()){
+                f.init.push_back(T::module_init);
+                f.registered_inits.push_back((int64_t)&T::module_init);
+            }
         }
     };
 
     /// your module has timer function(will be called at a fixed rate)
     struct PolicyTimer{
         template<HasModuleTimer T> inline static void bind(ModuleFuncs & f){
-           f.timer.push_back(T::module_timer);
+           if(std::find(f.registered_timers.begin(),f.registered_timers.end(),(int64_t)&T::module_timer)
+                == f.registered_timers.end()){
+                f.timer.push_back(T::module_timer);
+                f.registered_timers.push_back((int64_t)&T::module_timer);
+            }
         }
     };
 

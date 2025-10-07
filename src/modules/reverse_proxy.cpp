@@ -39,7 +39,7 @@ int ReverseClient::setup(){
 
 int ReverseClient::send_data(const std::pmr::vector<char> & data){
     if(connect_server() != 0)return -1;
-    return send(client_fd,data.data(),data.size(),0);
+    return send(client_fd,data.data(),data.size(),MSG_NOSIGNAL);
 }
 
 int ReverseClient::connect_server(){

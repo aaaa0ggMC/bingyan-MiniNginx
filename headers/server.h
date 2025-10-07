@@ -18,8 +18,11 @@
 #include <epoll.h>
 #include <client.h>
 #include <alib-g3/alogger.h>
+#include <thread>
 
 constexpr size_t mnginx_handle_buffer_size = 4096;
+constexpr size_t mnginx_ping_time_ms = 16000; // 16s per ping
+constexpr std::string_view ping_data = "HEAD /_keepalive HTTP/1.1\r\nHost: mininginx\r\n\r\n";
 
 namespace mnginx{
     /**
@@ -43,6 +46,8 @@ namespace mnginx{
         size_t module_timer_at_least_wait_ms;
         /// HTTP Package Max Size, 0 for no restrictions
         size_t http_package_max_size;
+        /// worker count
+        size_t workers = 0;
 
         inline void reset(){
             address.sin_family = AF_INET;
@@ -53,6 +58,7 @@ namespace mnginx{
             epoll_wait_interval_ms = 10;
             module_timer_at_least_wait_ms = 5;
             http_package_max_size = 8 * 1024 * 1024;
+            workers = 1;
         }
 
         inline ServerConfig(){
@@ -64,6 +70,11 @@ namespace mnginx{
      * @start-date 2025/10/03
      */
     struct Server{
+        /// server id
+        static int64_t server_id_max;
+        /// lock for accept
+        static std::mutex accept_lock;
+
         /// file descriptor of current server,it will be inited in setup()
         int server_fd;
         /// the epoll object
@@ -83,6 +94,16 @@ namespace mnginx{
 
         /// configs
         ServerConfig config;
+        
+        /// bool running
+        bool running;
+
+        /// current server id
+        int64_t server_id;
+
+        /// check clients valid
+        alib::g3::Clock clk;
+        alib::g3::Trigger ping_trigger;
 
         /// create the framework of the server with logger and state machine
         inline Server(
@@ -91,17 +112,23 @@ namespace mnginx{
             StateTree & hs,
             modules::ModuleFuncs & a_mods
         ):
-        lg_acc{acc},lg_err{err},handlers{hs},mods{a_mods}{ // lg is used for compatible reason
+        lg_acc{acc},lg_err{err},handlers{hs},mods{a_mods},clk(false),
+            ping_trigger(clk,mnginx_ping_time_ms){ // lg is used for compatible reason
             server_fd = -1;
+            running = true;
+            // this happens on the main thread,it's safe
+            server_id = server_id_max++;
         }
 
         /// destructor that automatically closes the server
         /// note that it is not suggested that you close the server
         /// or the server will be double closed and it may invoke some issues
         inline ~Server(){
+            using namespace alib::g3;
             if(server_fd != -1){
                 close(server_fd);
             }
+            lg_acc(LOG_INFO) << "Server#" << server_id << " shutdown" << endlog;
         }
 
         /// setup serverfd and epoll
@@ -110,6 +137,8 @@ namespace mnginx{
         void run();
         /// close the server
         void close_server();
+        /// stop server
+        void stop_server();
 
         /// accept all queued connections when epoll detected EPOLLIN of serverfd
         void accept_connections();

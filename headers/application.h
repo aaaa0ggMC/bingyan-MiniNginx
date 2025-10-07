@@ -19,6 +19,7 @@
 #include <server.h>
 #include <epoll.h>
 #include <config.h>
+#include <thread>
 
 // Since my library is verbose,so here I globally use the namespace
 using namespace alib::g3;
@@ -44,8 +45,8 @@ namespace mnginx{
         std::pmr::synchronized_pool_resource pool; 
 
         //// Servers
-        /// The main server,will upgrade to master-worker threaded mode in the future
-        std::unique_ptr<Server> server; 
+        std::vector<std::unique_ptr<Server>> servers;
+        std::vector<std::thread> server_threads;
         
         //// Route System
         /**
@@ -96,6 +97,8 @@ namespace mnginx{
         //// Main Section ////
         /// Launch MNginx
         void run();
+
+        void reset_servers();
 
         //// Moudle Register Functions ////
         template<HasModuleHandler T,class PoliciesPack,class... Args> 

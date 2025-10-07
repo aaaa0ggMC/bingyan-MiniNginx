@@ -8,6 +8,8 @@
 #include <stack>
 #include <modules/reverse_proxy.h>
 #include <socket_util.h>
+#include <iostream>
+#include <alib-g3/aparser.h>
 
 using namespace mnginx;
 
@@ -19,9 +21,14 @@ lg{"MiniNginx",logger},
 lgerr{LOG_SHOW_THID | LOG_SHOW_TIME | LOG_SHOW_TYPE},
 lge{"MiniNgnix",lgerr}{
     return_result = 0;
+    // Initialize cpp pmr resource pool,note that I'm not very familiar with it
+    // I just know how to use
+    std::pmr::set_default_resource(&pool);
 }
 
 Application::~Application(){
+    reset_servers();
+
     logger.setLogOutputTargetStatus("console",false); 
     lgerr.setLogOutputTargetStatus("console",false); 
     lg(LOG_INFO) << "=== MiniNginx Access Log Ended ===" << endlog;
@@ -46,16 +53,30 @@ void Application::setup(){
 }
 
 void Application::setup_general(){
-    // Initialize cpp pmr resource pool,note that I'm not very familiar with it
-    // I just know how to use
-    std::pmr::set_default_resource(&pool);
+    // clear cached data
+    cfg_server = ServerConfig();
+    config = Config();
+
+    reset_servers();
+    mods.init.clear();
+    mods.registered_inits.clear();
+    mods.registered_timers.clear();
+    mods.timer.clear();
+    handlers.clear_tree();
+
+    logger.flush();
+    lgerr.flush();
+    logger.targets.clear();
+    logger.filters.clear();
+    lgerr.targets.clear();
+    lgerr.filters.clear();
+
     // create logger console target
     logger.appendLogOutputTarget("console",std::make_shared<lot::Console>());
     lgerr.appendLogOutputTarget("console",std::make_shared<lot::Console>());
 }
 
 // app setup config see application_config.cpp
-
 void Application::setup_logger(){
     logger.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest-acc.log",4 * 1024 * 1024));
     lgerr.appendLogOutputTarget("file",std::make_shared<lot::SplittedFiles>("./data/latest-err.log",4 * 1024 * 1024));
@@ -88,12 +109,48 @@ void Application::setup_handlers(){
 }
 
 void Application::setup_servers(){
-    server = std::make_unique<Server>(lg,lge,handlers,mods);
-    server->config = cfg_server;
-    server->setup();
+    // step1: close all previous servers
+    reset_servers();
+
+    for(unsigned int i = 0;i < cfg_server.workers;++i){
+        auto server = std::make_unique<Server>(lg,lge,handlers,mods);
+        server->config = cfg_server;
+        server->setup();
+        servers.emplace_back(std::move(server));
+    }
 }
 
 //// Main Section ////
 void Application::run(){
-    server->run();
+    for(auto& sv : servers){
+        server_threads.emplace_back(&Server::run,sv.get());
+    }
+    // Main Threads waits for something....
+    Parser cmd_parser;
+    std::string command,head,args;
+    std::vector<std::string> sep_args;
+
+    while(true){
+        std::getline(std::cin,command);
+        cmd_parser.ParseCommand(command,head,args,sep_args);
+
+        if(!head.compare("exit")){
+            break;
+        }else if(!head.compare("reload")){
+            setup();
+        }else{
+            lge(LOG_ERROR) << "Unknown command \"" << command << "\"" << endlog;
+        }
+    }
+}
+
+void Application::reset_servers(){
+    for(auto & sv : servers){
+        sv->stop_server();
+    }
+    for(auto & th : server_threads){
+        if(th.joinable())th.join();
+    }
+    servers.clear();
+    server_threads.clear();
 }

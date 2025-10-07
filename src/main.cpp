@@ -7,6 +7,8 @@
 mnginx::Application app;
 
 int main(int argc,char ** argv){
+    // ignore SIG_PIPE
+    signal(SIGPIPE, SIG_IGN);
 #ifdef MNGINX_TESTING
     testing::InitGoogleTest(&argc,argv);
     return RUN_ALL_TESTS();

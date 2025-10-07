@@ -158,5 +158,19 @@ void Application::setup_config(){
         }
     }
 
+    // [H] Worker Count
+    str = config.config_nodes.get_node_recursive_value({"server","workers"});
+    if(str && !str->empty()){
+        char * endptr;
+        long ev_len = strtol(str->data(),&endptr,10);
+        if(ev_len <= 0){
+            lge(LOG_WARN) << "Worker count is bigger than 0!Current:" << ev_len << endlog;
+        }else{
+            cfg_server.workers = ev_len;
+            lg(LOG_DEBUG) << "Loaded worker count: " << ev_len << endlog;
+            states += "H";
+        }
+    }
+
     lg(LOG_INFO) << "Config updated:" << states << endlog;
 }
