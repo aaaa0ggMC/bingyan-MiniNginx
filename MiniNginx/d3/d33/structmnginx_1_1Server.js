@@ -1,0 +1,26 @@
+var structmnginx_1_1Server =
+[
+    [ "Server", "d3/d33/structmnginx_1_1Server.html#a6c808d43a6046cf81c3343f4d9d444a2", null ],
+    [ "~Server", "d3/d33/structmnginx_1_1Server.html#a9dc1fc240d9830f7b17683cc51149c9d", null ],
+    [ "accept_connections", "d3/d33/structmnginx_1_1Server.html#ad4b5451852187a67551e68480fa0e9f5", null ],
+    [ "cleanup_connection", "d3/d33/structmnginx_1_1Server.html#a915c85099ead7703b086c9ba0d4e9399", null ],
+    [ "close_server", "d3/d33/structmnginx_1_1Server.html#ac96eaa52d546b17ad1ff9308e99ce620", null ],
+    [ "handle_client", "d3/d33/structmnginx_1_1Server.html#a8bdd181fbab889cb9ecb24754fab8c33", null ],
+    [ "handle_pending_request", "d3/d33/structmnginx_1_1Server.html#a5fde0a36c9866b118178e5a109296fd6", null ],
+    [ "run", "d3/d33/structmnginx_1_1Server.html#abb27d30b40a94326e3fd629d3b30b7d5", null ],
+    [ "send_message", "d3/d33/structmnginx_1_1Server.html#a03eedcb176442f5d2b08ece3d2019b6f", null ],
+    [ "send_message_simp", "d3/d33/structmnginx_1_1Server.html#ab75a95986c151866a3efd9d03e58ab85", null ],
+    [ "setup", "d3/d33/structmnginx_1_1Server.html#ac2cf171fbcae23064b0139707e84a67c", null ],
+    [ "stop_server", "d3/d33/structmnginx_1_1Server.html#adc94656364e3f65b2a1f4ebccfb5d0d3", null ],
+    [ "clk", "d3/d33/structmnginx_1_1Server.html#a9719a0c15547d32a5f102b38de906595", null ],
+    [ "config", "d3/d33/structmnginx_1_1Server.html#a8b33f0c85bb3d15586aec8e5907bce4a", null ],
+    [ "epoll", "d3/d33/structmnginx_1_1Server.html#aeb0a4f86b0b39888657e1f02ebe9e9ae", null ],
+    [ "establishedClients", "d3/d33/structmnginx_1_1Server.html#a3fce1042df4ab5d8712a58ad48e3a6c0", null ],
+    [ "handlers", "d3/d33/structmnginx_1_1Server.html#a9ba553add1bfe8dcc1f25521acff3cda", null ],
+    [ "lg_acc", "d3/d33/structmnginx_1_1Server.html#a3195fecab73ce4bf521d3269b8142efe", null ],
+    [ "lg_err", "d3/d33/structmnginx_1_1Server.html#a268b913326a257d3540c8de5bbf46091", null ],
+    [ "mods", "d3/d33/structmnginx_1_1Server.html#a3ea3ecc2c0b34bac12bc3000a87d01dc", null ],
+    [ "running", "d3/d33/structmnginx_1_1Server.html#a4a90da6bedb39b51bf0e28dc5f5c99a6", null ],
+    [ "server_fd", "d3/d33/structmnginx_1_1Server.html#a70a6a061f52e99b014305d6e464faa21", null ],
+    [ "server_id", "d3/d33/structmnginx_1_1Server.html#a5f8f861a7ecf0e3d5ef23016f44cfba7", null ]
+];
