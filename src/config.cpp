@@ -157,7 +157,7 @@ std::optional<std::reference_wrapper<Config::Node>> Config::Node::get_node_recur
         i = 0;
     };
 
-    do{
+    while(true){
         while(cmp_index < location.size() && i < current->children.size()){
             if(current->children[i].name == location[cmp_index]){
                 // find the last item
@@ -173,15 +173,17 @@ std::optional<std::reference_wrapper<Config::Node>> Config::Node::get_node_recur
                     ++cmp_index;
                     continue; // to prevent i from adding
                 }
-            }else i++; 
+            }else i++;
         }
+        if(cmp_index >= location.size())break; // all segments matched
         if(founded <= expected_index && last_find != std::string::npos){
             current = &(current->children[last_find]);
             reset();
             ++cmp_index;
             continue;
         }
-    }while(0);
+        break;
+    }
     // find nothing
     if(cmp_index < location.size())return std::nullopt;
     return {*current};

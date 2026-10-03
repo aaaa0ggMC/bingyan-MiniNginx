@@ -86,6 +86,8 @@
         "mutex": "cpp",
         "any": "cpp",
         "future": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "cinttypes": "cpp",
+        "cstdarg": "cpp"
     }
 }

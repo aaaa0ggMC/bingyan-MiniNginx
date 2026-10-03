@@ -54,7 +54,7 @@ HandleResult ModFileProxy::handle(HandlerContext ctx,const FileProxyConfig & cfg
     fcntl(ctx.fd,F_SETFL,fcntl(ctx.fd,F_GETFL,0) & ~O_NONBLOCK);
 
     defer{
-        fcntl(ctx.fd,F_SETFL,fcntl(ctx.fd,F_GETFL,0) & ~O_NONBLOCK);
+        fcntl(ctx.fd,F_SETFL,fcntl(ctx.fd,F_GETFL,0) | O_NONBLOCK);
         close(file_fd);
     };
 

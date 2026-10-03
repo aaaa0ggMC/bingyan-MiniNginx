@@ -110,7 +110,7 @@ void Application::setup_config(){
         if(wt > 16'000){
             lge(LOG_WARN) << "Epoll wait interval is over 16 seconds,may be too long!" << endlog;
         }
-        cfg_server.epoll_event_list_size = wt;
+        cfg_server.epoll_wait_interval_ms = wt;
         lg(LOG_DEBUG) << "Loaded epoll wait interval " << wt << "ms" << endlog;
         states += "E";
     }

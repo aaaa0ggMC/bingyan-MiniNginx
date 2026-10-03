@@ -175,15 +175,17 @@ void Server::handle_client(epoll_event & ev){
         if(count == 0){
             lg_acc(LOG_INFO) << "Client closed connection: fd[" << client_fd << "]" << endlog;
             shouldClose = true;
-        }else if(count == -1 && errno != EAGAIN){
+            break;
+        }else if(count == -1){
+            if(errno == EAGAIN || errno == EWOULDBLOCK)break; // no more data to read
             lg_err(LOG_ERROR) << "Read failed: " << strerror(errno) << " fd[" << client_fd << "]" << endlog;
             shouldClose = true;
-        }else if(count > 0){
+            break;
+        }else{
             lg_acc(LOG_INFO) << "Received " << count << " bytes from client: fd[" << client_fd << "]" << endlog;
             it->second.buffer.insert(it->second.buffer.end(),buffer,buffer + count);
         }
-        if(count == sizeof(buffer))continue; //maybe there's more data
-    }while(false);
+    }while(true);
 
     // @todo if the size of the buffer exceedes 8MB(can be configured later),we treat it as an sus one
     if(config.http_package_max_size && it->second.buffer.size() > config.http_package_max_size){
@@ -395,6 +397,7 @@ void Server::handle_pending_request(ClientInfo & client,int fd){
 
 ssize_t Server::send_message_simp(int fd,HTTPResponse::StatusCode code,std::string_view stat_str){
     thread_local static HTTPResponse resp;
+    resp.reset();
     resp.version.major = 1;
     resp.version.minor = 1;
     resp.status_code = code;

@@ -309,7 +309,7 @@ void HTTPResponse::generate_to(std::pmr::vector<char>& rdata) const{
     append_num(rdata,version.major);
     if(version.minor){
         rdata.push_back('.');
-        append_num(rdata,version.major);
+        append_num(rdata,version.minor);
     }
     rdata.push_back(' ');
     append_num(rdata,static_cast<int32_t>(status_code));

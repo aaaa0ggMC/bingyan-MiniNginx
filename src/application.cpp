@@ -138,6 +138,9 @@ void Application::run(){
             break;
         }else if(!head.compare("reload")){
             setup();
+            for(auto& sv : servers){
+                server_threads.emplace_back(&Server::run,sv.get());
+            }
         }else{
             lge(LOG_ERROR) << "Unknown command \"" << command << "\"" << endlog;
         }
